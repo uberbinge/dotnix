@@ -191,19 +191,30 @@
     jcp() {
       # Commit and push: commit current work and push to current bookmark or main
       local current_bookmark=$(jj log -r @ --no-graph -T 'bookmarks')
+      local using_main_fallback=false
       
       if [ -z "$current_bookmark" ]; then
         echo "ℹ️  No bookmark on current revision, using 'main'"
         current_bookmark="main"
+        using_main_fallback=true
       fi
       
       if [ $# -eq 0 ]; then
         # No arguments - interactive commit
-        jj commit && jj git push -b "$current_bookmark"
+        jj commit
       else
-        # Has arguments - commit with message and push
-        jj commit -m "$*" && jj git push -b "$current_bookmark"
+        # Has arguments - commit with message
+        jj commit -m "$*"
       fi
+      
+      # If using main as fallback, move the bookmark to current revision
+      if [ "$using_main_fallback" = true ]; then
+        echo "ℹ️  Moving 'main' bookmark to current revision"
+        jj bookmark set main -r @
+      fi
+      
+      # Push the bookmark
+      jj git push -b "$current_bookmark"
     }
 
     jpr() {
