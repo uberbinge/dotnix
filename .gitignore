@@ -1,21 +1,15 @@
-# Secrets and sensitive information (legacy references kept for safety)
-*secret*
-.wq-secrets/
-.nix-created.env
-
-# System and IDE files
+# System files
 .DS_Store
-.idea
-.vscode
 
-# Nix-related
-*result*
+# IDE files
+.idea/
+.vscode/
 
-# Project-specific
-/website-opener/*target*
+# Nix build artifacts
+result
+result-*
 
-# Rust-related
-/target/
-**/*.rs.bk
-Cargo.lock
+# Environment files
+*.env
+.env*
 
