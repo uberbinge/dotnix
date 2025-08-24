@@ -184,8 +184,11 @@
 
     # JJ workflow functions from busy dev guide
     jstart() {
-      # Start new work: fetch, create revision on main
-      jj git fetch && jj new main
+      # Start new work: fetch, create revision on specified branch (default: main)
+      local base_branch="''${1:-main}"  # Default to main if no branch specified
+      
+      echo "ℹ️  Starting new work from '$base_branch'"
+      jj git fetch && jj new "$base_branch"
     }
 
     jcp() {
@@ -217,10 +220,17 @@
         fi
       fi
       
-      # If using main as fallback, move the bookmark to the committed revision
+      # Move the bookmark to the committed revision
       if [ "$using_main_fallback" = true ]; then
         echo "ℹ️  Moving 'main' bookmark to committed revision"
         if ! jj bookmark set main -r @-; then
+          echo "❌ Failed to move bookmark"
+          return 1
+        fi
+      else
+        # Move the existing bookmark to the new commit to keep it tracking
+        echo "ℹ️  Moving '$current_bookmark' bookmark to committed revision"
+        if ! jj bookmark set "$current_bookmark" -r @-; then
           echo "❌ Failed to move bookmark"
           return 1
         fi
@@ -237,22 +247,47 @@
     }
 
     jpr() {
-      # Create PR: create bookmark, push, create interactive draft PR
+      # Create PR: create bookmark, commit if needed, push, create PR
       if [ $# -eq 0 ]; then
-        echo "Usage: jpr <bookmark-name>"
+        echo "Usage: jpr <bookmark-name> [commit-message]"
         return 1
       fi
       
       local branch_name="$1"
+      local commit_message="$2"
       
-      # Create bookmark and push
-      jj bookmark create "$branch_name" -r @ && \
-      jj git push -b "$branch_name" --allow-new && \
+      # Create or update bookmark (handle existing bookmarks)
+      if jj bookmark list | grep -q "^$branch_name:"; then
+        echo "ℹ️  Updating existing bookmark: $branch_name"
+        jj bookmark set "$branch_name" -r @
+      else
+        echo "ℹ️  Creating new bookmark: $branch_name"
+        jj bookmark create "$branch_name" -r @
+      fi
       
-      # Create draft PR with GitHub CLI (interactive)
+      # Check if we need to commit changes
+      local has_description=$(jj log -r @ --no-graph -T 'description' | grep -v '^$' | wc -l)
+      if [ "$has_description" -eq 0 ]; then
+        if [ -n "$commit_message" ]; then
+          # Commit with provided message
+          jj commit -m "$commit_message"
+        else
+          # Interactive commit
+          echo "ℹ️  Opening editor for commit message..."
+          jj commit
+        fi
+        
+        # Move bookmark to the committed revision
+        jj bookmark set "$branch_name" -r @-
+      fi
+      
+      # Push and create PR
+      jj git push -b "$branch_name" --allow-new
+      
+      # Create draft PR with GitHub CLI, specifying the branch explicitly
       if command -v gh >/dev/null 2>&1; then
         echo "Creating draft PR..."
-        gh pr create --draft --fill
+        gh pr create --head "$branch_name" --draft --fill
       else
         echo "✅ Branch pushed. Install 'gh' CLI to auto-create PRs."
       fi
