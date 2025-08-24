@@ -291,6 +291,9 @@ clone_configuration() {
     # Create work directory structure
     execute mkdir -p "$WORK_DIR"
     
+    # Create config directories for 1Password integration
+    execute mkdir -p ~/.config/alfred
+    
     if is_installed "config-repo" && [ "$FORCE_INSTALL" != true ]; then
         success "Configuration repository already exists"
         log "Updating configuration..."
