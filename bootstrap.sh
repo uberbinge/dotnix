@@ -223,7 +223,7 @@ install_xcode_tools() {
     if ! check_command git; then
         log "Installing Xcode Command Line Tools..."
         if [ "$DRY_RUN" != true ]; then
-            xcode-select --install
+            sudo xcode-select --install
             echo "Waiting for Xcode installation to complete..."
             echo "Press Enter when installation is finished..."
             read -p ""
