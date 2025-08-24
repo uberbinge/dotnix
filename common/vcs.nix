@@ -256,8 +256,14 @@
       local branch_name="$1"
       local commit_message="$2"
       
-      # Create bookmark first (so jcp won't push to main)
-      jj bookmark create "$branch_name" -r @
+      # Create or update bookmark (handle existing bookmarks)
+      if jj bookmark list | grep -q "^$branch_name:"; then
+        echo "ℹ️  Updating existing bookmark: $branch_name"
+        jj bookmark set "$branch_name" -r @
+      else
+        echo "ℹ️  Creating new bookmark: $branch_name"
+        jj bookmark create "$branch_name" -r @
+      fi
       
       # Check if we need to commit changes
       local has_description=$(jj log -r @ --no-graph -T 'description' | grep -v '^$' | wc -l)
@@ -270,15 +276,18 @@
           echo "ℹ️  Opening editor for commit message..."
           jj commit
         fi
+        
+        # Move bookmark to the committed revision
+        jj bookmark set "$branch_name" -r @-
       fi
       
       # Push and create PR
       jj git push -b "$branch_name" --allow-new
       
-      # Create draft PR with GitHub CLI (interactive)
+      # Create draft PR with GitHub CLI, specifying the branch explicitly
       if command -v gh >/dev/null 2>&1; then
         echo "Creating draft PR..."
-        gh pr create --draft --fill
+        gh pr create --head "$branch_name" --draft --fill
       else
         echo "✅ Branch pushed. Install 'gh' CLI to auto-create PRs."
       fi
