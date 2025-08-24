@@ -128,6 +128,30 @@
                         -d chat_id=$TELEGRAM_CHAT_ID \
                         -d text="$1"
         }
+        
+      # Cross-platform home switch function
+      hs() {
+        cd ~/dev/dotnix
+        export FLAKE_USERNAME=$(whoami)
+        
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+          # macOS - use darwin-rebuild
+          sudo -E darwin-rebuild switch --flake .#default
+        elif command -v nixos-rebuild >/dev/null 2>&1; then
+          # NixOS - use nixos-rebuild  
+          sudo -E nixos-rebuild switch --flake .#nixos
+        elif command -v home-manager >/dev/null 2>&1; then
+          # Linux with home-manager only
+          home-manager switch --flake .#"$FLAKE_USERNAME"
+        else
+          echo "❌ No supported Nix rebuild command found"
+          echo "Available options:"
+          echo "  - darwin-rebuild (macOS)"
+          echo "  - nixos-rebuild (NixOS)" 
+          echo "  - home-manager (Linux)"
+          return 1
+        fi
+      }
     '';
     shellAliases = {
       ".." = "cd ..";
@@ -170,7 +194,6 @@
       # Additional shortcuts
       s = "gst";
       l = "lazygit";
-      hs = "cd ~/dev/dotnix && FLAKE_USERNAME=$(whoami) sudo -E darwin-rebuild switch --flake .#default";
     };
   };
 
