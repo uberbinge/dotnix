@@ -24,6 +24,7 @@ set -e
 
 # Script configuration
 SCRIPT_VERSION="2.2.0"
+CURRENT_USER=$(whoami)  # Automatically detect current user
 WORK_DIR="$HOME/dev"
 CONFIG_DIR="$WORK_DIR/dotnix"
 REPO_URL="https://github.com/uberbinge/dotnix.git"
@@ -157,6 +158,8 @@ show_header() {
     echo "╔══════════════════════════════════════════════════════════════════════════════╗"
     echo "║                    🚀 MacBook Bootstrap Script v$SCRIPT_VERSION                    ║"
     echo "║                                                                              ║"
+    echo "║  🧑‍💻 User: $CURRENT_USER"
+    printf "║%*s║\n" $((73 - ${#CURRENT_USER})) ""
     echo "║  This script will set up your complete development environment:             ║"
     echo "║  • Xcode Command Line Tools                                                 ║"
     echo "║  • SSH via Tailscale + 1Password SSH Agent                                  ║"

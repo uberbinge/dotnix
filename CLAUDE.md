@@ -47,7 +47,7 @@ darwin-rebuild switch --flake ~/dev/dotnix
 
 #### Linux/NixOS Commands
 ```bash
-# Home Manager only
+# Home Manager only (uses current user automatically)
 home-manager switch --flake ~/dev/dotnix
 
 # Full NixOS system
@@ -98,6 +98,7 @@ update-homebrew-apps
 - **Tailscale SSH**: Machine-to-machine access without manual key management
 - **Config File Sync**: AWS, NPM, Gradle configs synced from 1Password family vault
 - **Cross-platform Support**: SSH signing works on both macOS and Linux
+- **Automatic User Detection**: Username automatically detected from `$USER` environment variable
 
 ### Keyboard Shortcuts & System Integration
 - **Spotlight shortcuts disabled**: Frees up Cmd+Space for Alfred
