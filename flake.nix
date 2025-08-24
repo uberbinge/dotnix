@@ -109,7 +109,7 @@
         # Single reusable macOS configuration
         universalMacConfig = mkConfiguration {
           system = "aarch64-darwin";
-          username = builtins.getEnv "USER";  # Automatically detect current user
+          username = "waqas.ahmed";  # Update this to your username
           hostname = "mac";  # Generic hostname, actual hostname doesn't matter
         };
       in {
@@ -118,14 +118,14 @@
         default = universalMacConfig;
       };
 
-      homeConfigurations."${builtins.getEnv "USER"}" = mkConfiguration {
+      homeConfigurations."waqas" = mkConfiguration {
         system = "aarch64-linux";
-        username = builtins.getEnv "USER";  # Automatically detect current user
+        username = "waqas";  # Update this to your username
       };
 
       nixosConfigurations.nixos = mkConfiguration {
         system = "aarch64-linux";
-        username = builtins.getEnv "USER";  # Automatically detect current user
+        username = "waqas";  # Update this to your username
         isNixOS = true;
       };
 
