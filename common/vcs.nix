@@ -92,7 +92,7 @@
       diff = {
         tool = "delta";
       };
-      # Template for commit messages
+      # Template for commit messages  
       template-aliases = {
         "builtin_log_oneline" = ''
           if(root, 
@@ -100,8 +100,11 @@
             label(if(current_working_copy, "working_copy"), 
               separate(" ", 
                 change_id.short(),
+                author.name(),
+                committer.timestamp().ago(),
+                commit_id.short(),
                 if(description, description.first_line(), "(no description set)"),
-                branches,
+                bookmarks,
                 tags
               )
             )
@@ -115,7 +118,7 @@
   home.shellAliases = {
     # JJ (Jujutsu) aliases - modern VCS
     js = "jj status";
-    jl = "jj log";
+    jl = "jj log -T builtin_log_oneline";
     jp = "jj git push";
     jn = "jj new";
     je = "jj edit";
