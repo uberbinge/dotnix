@@ -188,6 +188,24 @@
       jj git fetch && jj new main
     }
 
+    jcp() {
+      # Commit and push: commit current work and push to current bookmark or main
+      local current_bookmark=$(jj log -r @ --no-graph -T 'bookmarks')
+      
+      if [ -z "$current_bookmark" ]; then
+        echo "ℹ️  No bookmark on current revision, using 'main'"
+        current_bookmark="main"
+      fi
+      
+      if [ $# -eq 0 ]; then
+        # No arguments - interactive commit
+        jj commit && jj git push -b "$current_bookmark"
+      else
+        # Has arguments - commit with message and push
+        jj commit -m "$*" && jj git push -b "$current_bookmark"
+      fi
+    }
+
     jpr() {
       # Create PR: create bookmark, push, create interactive draft PR
       if [ $# -eq 0 ]; then
