@@ -1,0 +1,21 @@
+# Secrets and sensitive information (legacy references kept for safety)
+*secret*
+.wq-secrets/
+.nix-created.env
+
+# System and IDE files
+.DS_Store
+.idea
+.vscode
+
+# Nix-related
+*result*
+
+# Project-specific
+/website-opener/*target*
+
+# Rust-related
+/target/
+**/*.rs.bk
+Cargo.lock
+
