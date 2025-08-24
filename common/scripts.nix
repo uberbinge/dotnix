@@ -107,6 +107,9 @@
           "$HOME/dev"
           "$HOME/.config"
         )
+        
+        # Add work directory if it exists
+        [ -d "$HOME/work" ] && SEARCH_DIRS+=("$HOME/work")
 
         # Temporary file for storing results
         TEMP_FILE=$(mktemp)

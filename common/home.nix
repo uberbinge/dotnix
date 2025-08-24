@@ -18,7 +18,6 @@
       };
       packages = with pkgs; [
         # Additional packages specific to this configuration
-        atuin
         bat
         coreutils
         gh
