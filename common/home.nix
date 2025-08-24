@@ -174,7 +174,7 @@
       nm = "nvim";
       vim = "nvim";
       v = "nvim";
-      refrzsh = "exec zsh";
+      rzsh = "exec zsh";
       # Platform-specific aliases moved to platform configs
       
       # Mise task shortcuts
