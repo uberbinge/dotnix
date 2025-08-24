@@ -13,3 +13,6 @@ result-*
 *.env
 .env*
 
+# Local configuration files
+CLAUDE.local.md
+
