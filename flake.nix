@@ -24,6 +24,19 @@
       lib = nixpkgs.lib;
       systems = [ "aarch64-darwin" "aarch64-linux" ];
       forAllSystems = lib.genAttrs systems;
+      
+      # Default username (can be overridden via --override-input)
+      defaultUsername = "waqas.ahmed";
+      defaultLinuxUsername = "waqas";
+      
+      # Get username from environment or use default
+      currentUsername = 
+        let envUser = builtins.getEnv "FLAKE_USERNAME";
+        in if envUser != "" then envUser else defaultUsername;
+        
+      currentLinuxUsername =
+        let envUser = builtins.getEnv "FLAKE_USERNAME"; 
+        in if envUser != "" then envUser else defaultLinuxUsername;
 
       mkConfiguration = { system, username, hostname ? null, isNixOS ? false }:
         let
@@ -109,7 +122,7 @@
         # Single reusable macOS configuration
         universalMacConfig = mkConfiguration {
           system = "aarch64-darwin";
-          username = "waqas.ahmed";  # Update this to your username
+          username = currentUsername;  # Uses FLAKE_USERNAME env var or default
           hostname = "mac";  # Generic hostname, actual hostname doesn't matter
         };
       in {
@@ -118,14 +131,14 @@
         default = universalMacConfig;
       };
 
-      homeConfigurations."waqas" = mkConfiguration {
+      homeConfigurations."${currentLinuxUsername}" = mkConfiguration {
         system = "aarch64-linux";
-        username = "waqas";  # Update this to your username
+        username = currentLinuxUsername;  # Uses FLAKE_USERNAME env var or default
       };
 
       nixosConfigurations.nixos = mkConfiguration {
         system = "aarch64-linux";
-        username = "waqas";  # Update this to your username
+        username = currentLinuxUsername;  # Uses FLAKE_USERNAME env var or default
         isNixOS = true;
       };
 

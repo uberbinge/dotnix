@@ -170,7 +170,7 @@
       # Additional shortcuts
       s = "gst";
       l = "lazygit";
-      hs = "sudo darwin-rebuild switch --flake ~/dev/dotnix#default";
+      hs = "cd ~/dev/dotnix && FLAKE_USERNAME=$(whoami) sudo -E darwin-rebuild switch --flake .#default";
     };
   };
 

@@ -348,18 +348,20 @@ install_nix_darwin() {
     # Check if nix-darwin is already installed
     if is_installed "nix-darwin" && [ "$FORCE_INSTALL" != true ]; then
         log "Nix-Darwin already installed, running system update..."
+        log "Using current user: $CURRENT_USER"
         if [ "$DRY_RUN" != true ]; then
-            sudo darwin-rebuild switch --flake .#default
+            FLAKE_USERNAME="$CURRENT_USER" sudo -E darwin-rebuild switch --flake .#default
         fi
         success "System configuration updated"
         return 0
     fi
     
     log "Installing Nix-Darwin system configuration..."
+    log "Using current user: $CURRENT_USER"
     log "This may take 10-15 minutes on first run..."
     
     if [ "$DRY_RUN" != true ]; then
-        sudo nix run nix-darwin -- switch --flake .#default
+        FLAKE_USERNAME="$CURRENT_USER" sudo -E nix run nix-darwin -- switch --flake .#default
     fi
     
     success "Nix-Darwin system configuration completed"
