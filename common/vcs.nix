@@ -228,7 +228,7 @@
       
       # Push the bookmark
       echo "ℹ️  Pushing bookmark: $current_bookmark"
-      if ! jj git push -b "$current_bookmark"; then
+      if ! jj git push -b "$current_bookmark" --allow-new; then
         echo "❌ Push failed"
         return 1
       fi
