@@ -102,13 +102,10 @@
       enable = true;
     };
     initContent = ''
-      export PATH="$HOME/.local/bin:$HOME/.claude/local:$PATH"
+      export PATH="$HOME/.local/bin:$PATH"
       eval "$(mise activate zsh)"
       setopt AUTO_CD
-      # 1Password SSH Agent override (macOS sets SSH_AUTH_SOCK by default)
-      if [[ "$(uname)" == "Darwin" ]]; then
-        export SSH_AUTH_SOCK="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
-      fi
+      # 1Password SSH Agent configuration (platform-specific paths handled in platform configs)
       # Environment variables are now handled directly by Nix home.sessionVariables
       _tmux_sessionizer_widget() {
         tmux-sessionizer
@@ -178,12 +175,7 @@
       vim = "nvim";
       v = "nvim";
       refrzsh = "exec zsh";
-      cl4 = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude --model eu.anthropic.claude-sonnet-4-20250514-v1:0";
-      cl4d = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude --dangerously-skip-permissions --model eu.anthropic.claude-sonnet-4-20250514-v1:0";
-      cl = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude";
-      cld = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude --dangerously-skip-permissions";
-      unset-aws = "unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE";
-      daily = "cd \"$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/\" && cl4 --continue";
+      # Platform-specific aliases moved to platform configs
       
       # Mise task shortcuts
       b = "mise run build";

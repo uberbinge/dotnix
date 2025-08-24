@@ -53,8 +53,8 @@
       };
 
       # SSH signing configuration with 1Password
-      # Use key fingerprint instead of full key content for SSH signing
-      user.signingkey = "key::SHA256:ktvsnxtM/29t6xlSiXZ1hUCPmnmHqP3tsTJKD+o5vHU";
+      # Use full SSH public key for signing (replace with your actual key from 1Password)
+      user.signingkey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCvxBgcSK/xqo38YHW6GWRBDcZyGZ2nZahlAKYMwNYiNv1vZmolbEv2N0BaPLX1mMWVToRt0Kr5PJIzzDHP765I4qFn7Go8H3H/kS2wDgJ4GaMgp6SpcHiFqwAIfRb54igC50AFbxx4ecCCjegCQppyKP2z5Ispcz/t+jN85ZEcTcQCR5Oio4Xjf/LF7FkEJAwCMsu4FMdTOQpH6vFKm5xYK2fz6+Tf/xdrjfifQEQD+yz+2nt4t9RmjRu9kSLfmAZqzAIlOR1mNlxDBZyoqdpPtvwkvfrLF0PJnMLXvrdQ2fa/LgUfFWTe4F5/qPJinHIDmDGtLXeH8Gj2FVpvAWYIiOGIPj/Zb3uP4bKordT4YfBtVPA33L9T3fu6WJBjemYR9VympPti2bM3OfphNzPYIM8LJo/Qdvd+bcya3YUNKChM/whVmrn3dymM6tyKO0P/v0IPopgj4tEM376TdXRyeVqn6BIozqQbu9Fw5EIWgtxl5JPIOc2xEOFI0/zg+ck=";
       gpg.format = "ssh";
       "gpg \"ssh\"".program = if pkgs.stdenv.isDarwin 
         then "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
@@ -159,7 +159,7 @@
     jlall = "jj log -r '..'";          # Everything
   };
 
-  programs.zsh.initExtra = ''
+  programs.zsh.initContent = ''
     # JJ commit function - smart argument handling
     jc() {
       if [ $# -eq 0 ]; then
