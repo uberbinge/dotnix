@@ -207,10 +207,10 @@
         jj commit -m "$*"
       fi
       
-      # If using main as fallback, move the bookmark to current revision
+      # If using main as fallback, move the bookmark to the committed revision
       if [ "$using_main_fallback" = true ]; then
-        echo "ℹ️  Moving 'main' bookmark to current revision"
-        jj bookmark set main -r @
+        echo "ℹ️  Moving 'main' bookmark to committed revision"
+        jj bookmark set main -r @-
       fi
       
       # Push the bookmark
