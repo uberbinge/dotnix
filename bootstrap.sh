@@ -47,6 +47,35 @@ if [ "$EUID" -eq 0 ]; then
     exit 1
 fi
 
+# Check prerequisites before starting
+check_prerequisites() {
+    echo -e "${BLUE}🔍 Checking Prerequisites${NC}"
+    echo -e "${DIM}──────────────────────────────────────────────────────────────────────${NC}"
+    
+    # Check for Xcode Command Line Tools
+    if ! command -v git >/dev/null 2>&1 || ! command -v make >/dev/null 2>&1; then
+        echo -e "${RED}❌ Xcode Command Line Tools not found${NC}"
+        echo -e "${YELLOW}📋 MANUAL SETUP REQUIRED:${NC}"
+        echo -e ""
+        echo -e "${BOLD}1. Install Xcode Command Line Tools:${NC}"
+        echo -e "   ${DIM}sudo xcode-select --install${NC}"
+        echo -e ""
+        echo -e "${BOLD}2. Wait for installation to complete (may take 5-15 minutes)${NC}"
+        echo -e ""
+        echo -e "${BOLD}3. Verify installation:${NC}"
+        echo -e "   ${DIM}git --version${NC}"
+        echo -e "   ${DIM}make --version${NC}"
+        echo -e ""
+        echo -e "${BOLD}4. Re-run this script:${NC}"
+        echo -e "   ${DIM}curl -L https://raw.githubusercontent.com/uberbinge/dotnix/main/bootstrap.sh | bash${NC}"
+        echo -e ""
+        echo -e "${DIM}💡 Xcode Command Line Tools must be installed manually due to macOS security restrictions${NC}"
+        exit 1
+    fi
+    
+    success "Xcode Command Line Tools found"
+}
+
 # Command line options
 SKIP_XCODE=false
 FORCE_INSTALL=false
@@ -207,36 +236,6 @@ check_prerequisites() {
     export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 }
 
-install_xcode_tools() {
-    step "🔨 Xcode Command Line Tools"
-    
-    if [ "$SKIP_XCODE" = true ]; then
-        warning "Skipping Xcode tools installation (--skip-xcode)"
-        return 0
-    fi
-    
-    if is_installed "xcode" && [ "$FORCE_INSTALL" != true ]; then
-        success "Xcode Command Line Tools already installed"
-        return 0
-    fi
-    
-    if ! check_command git; then
-        log "Installing Xcode Command Line Tools..."
-        if [ "$DRY_RUN" != true ]; then
-            sudo xcode-select --install
-            echo "Waiting for Xcode installation to complete..."
-            echo "Press Enter when installation is finished..."
-            read -p ""
-        fi
-    fi
-    
-    if is_installed "xcode"; then
-        success "Xcode Command Line Tools installed"
-    else
-        error "Xcode Command Line Tools installation failed"
-        exit 1
-    fi
-}
 
 
 install_nix() {
@@ -435,7 +434,6 @@ main() {
     check_prerequisites
     
     # Installation phases
-    install_xcode_tools
     install_nix
     clone_configuration
     install_nix_darwin

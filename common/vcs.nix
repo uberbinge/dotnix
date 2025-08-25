@@ -187,11 +187,30 @@
 
     # JJ workflow functions from busy dev guide
     jstart() {
-      # Start new work: fetch, create revision on specified branch (default: main)
+      # Start new work: fetch, sync, clean up merged branches, create revision
       local base_branch="''${1:-main}"  # Default to main if no branch specified
       
+      echo "ℹ️  Fetching latest changes..."
+      jj git fetch
+      
+      echo "ℹ️  Syncing with remote..."
+      jj git import
+      
+      echo "ℹ️  Cleaning up merged bookmarks..."
+      # Clean up bookmarks that no longer exist on remote
+      jj bookmark list | grep -v "main" | while read bookmark_line; do
+        local bookmark_name=$(echo "$bookmark_line" | cut -d':' -f1 | tr -d ' ')
+        if [ -n "$bookmark_name" ]; then
+          # Check if remote branch exists
+          if ! jj git fetch --branch "$bookmark_name" 2>/dev/null; then
+            echo "🧹 Cleaning up merged bookmark: $bookmark_name"
+            jj bookmark delete "$bookmark_name" 2>/dev/null || true
+          fi
+        fi
+      done
+      
       echo "ℹ️  Starting new work from '$base_branch'"
-      jj git fetch && jj new "$base_branch"
+      jj new "$base_branch"
     }
 
     jcp() {
