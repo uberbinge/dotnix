@@ -11,12 +11,35 @@ Multi-platform Nix configuration for development environments across macOS and L
 
 ## Quick Start
 
+### New MacBook Setup
+
+**Prerequisites (manual step):**
 ```bash
-# New Mac setup
+# 1. Install Xcode Command Line Tools first
+sudo xcode-select --install
+# Wait for installation to complete (5-15 minutes)
+
+# 2. Verify installation
+git --version
+make --version
+```
+
+**Automated setup:**
+```bash
+# 3. Run bootstrap script
 curl -L https://raw.githubusercontent.com/uberbinge/dotnix/main/bootstrap.sh | bash
 
-# After bootstrap
-./sync-config-files.sh  # Sync configs from 1Password
+# 4. Sync configs from 1Password
+cd ~/dev/dotnix && ./sync-config-files.sh
+```
+
+### Existing System Updates
+```bash
+# Apply configuration changes
+hs  # or: darwin-rebuild switch --flake ~/dev/dotnix#default
+
+# Update all packages
+nix flake update && hs
 ```
 
 ## What's Included
@@ -27,13 +50,6 @@ curl -L https://raw.githubusercontent.com/uberbinge/dotnix/main/bootstrap.sh | b
 - **Applications**: Development tools, productivity apps via Homebrew
 - **Security**: 1Password SSH agent, secure credential management
 
-## Daily Commands
-
-```bash
-darwin-rebuild switch --flake ~/dev/dotnix  # Apply changes (macOS)
-home-manager switch --flake ~/dev/dotnix    # Apply changes (Linux)
-nix flake update && darwin-rebuild switch --flake ~/dev/dotnix  # Update packages
-```
 
 ## Structure
 
