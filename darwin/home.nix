@@ -48,15 +48,24 @@
 idiomatic_version_file_enable_tools = []
 '';
 
-  # Ghostty terminal configuration
+  # Ghostty terminal configuration (installed via Homebrew)
   home.file.".config/ghostty/config".text = ''
-font-family = FiraCode Nerd Font Mono
-font-size = 15
-
-# Save window state and layouts
-window-save-state = "always"
-keybind = shift+enter=text:\n
-'';
+    # Auto-switch between light and dark themes with macOS appearance
+    theme = dark:catppuccin-mocha,light:catppuccin-latte
+    
+    # Font configuration
+    font-family = FiraCode Nerd Font Mono
+    font-size = 15
+    
+    # Save window state and layouts
+    window-save-state = always
+    
+    # Native macOS titlebar
+    macos-titlebar-style = native
+    
+    # Key bindings
+    keybind = shift+enter=text:\n
+  '';
 
   home.activation = {
     resetLaunchPad = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin (lib.hm.dag.entryBefore ["installPackages"] ''
