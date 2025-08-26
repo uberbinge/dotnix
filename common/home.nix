@@ -34,6 +34,16 @@
         jsonnet
         ncspot
         deno
+        
+        # Create podman -> docker wrapper script
+        (writeShellScriptBin "podman" ''
+          exec docker "$@"
+        '')
+        
+        # Create podman-compose -> docker-compose wrapper script
+        (writeShellScriptBin "podman-compose" ''
+          exec docker-compose "$@"
+        '')
       ];
       activation = {
         rebuildCache = lib.hm.dag.entryAfter ["writeBoundary"] ''
@@ -185,6 +195,9 @@
       # Additional shortcuts
       s = "gst";
       l = "lazygit";
+      
+      # Container aliases
+      podman = "docker";
     };
   };
 

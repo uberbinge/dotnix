@@ -7,7 +7,7 @@ in
   system.primaryUser = username;
 
   environment.systemPackages = with pkgs; [
-    docker
+    # Docker removed - provided by OrbStack via Homebrew
   ];
 
   imports = [
