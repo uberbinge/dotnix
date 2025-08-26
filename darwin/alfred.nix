@@ -42,7 +42,7 @@ in
         echo "$personal_sites" | ${pkgs.jq}/bin/jq --argjson work_json "$work_data" '
           . + [
             $work_json.fields[] | 
-            select(.type == "STRING" and .label != null and .value != null and .label != "notesPlain") | 
+            select(.type == "URL" and .label != null and .value != null) | 
             {
               "title": .label,
               "arg": .value,
