@@ -65,6 +65,9 @@
       credential = {
         helper = if pkgs.stdenv.isDarwin then "osxkeychain" else "cache --timeout=3600";
       };
+
+      # Automatically setup remote tracking for new branches
+      push.autoSetupRemote = true;
     };
   };
 
