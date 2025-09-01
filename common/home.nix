@@ -158,28 +158,6 @@
           return 1
         fi
       }
-      
-      # Set Zed AWS environment variables from aws-sso profile
-      zed-aws() {
-        local profile="ai-coding.tools-ai-coding-maintainers"
-        echo "Setting Zed AWS environment variables from profile: $profile"
-        
-        # Use aws-sso eval to get credentials
-        eval $(aws-sso eval --profile "$profile" 2>/dev/null)
-        
-        if [[ -n "$AWS_ACCESS_KEY_ID" && -n "$AWS_SECRET_ACCESS_KEY" ]]; then
-          export ZED_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"
-          export ZED_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
-          export ZED_AWS_REGION="''${AWS_REGION:-eu-central-1}"
-          export ZED_SESSION_TOKEN="$AWS_SESSION_TOKEN"
-          
-          echo "✅ Zed AWS credentials set for region: ''${ZED_AWS_REGION}"
-          echo "   Access Key: ''${ZED_ACCESS_KEY_ID:0:20}..."
-        else
-          echo "❌ Failed to get AWS credentials from profile '$profile'"
-          echo "   Make sure you've run 'aws-sso login $profile' first"
-        fi
-      }
     '';
     shellAliases = {
       ".." = "cd ..";
