@@ -38,7 +38,7 @@
       # Core productivity (existing)
       "alfred"
       "caffeine"
-      "ghostty"
+      "ghostty@tip"
       "raycast"
       "lunar"
       "bartender"

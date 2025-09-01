@@ -130,6 +130,7 @@
     jsq = "jj squash";
     jb = "jj bookmark";
     jgi = "jj git import";  # Rare but useful for collaboration
+    ji = "jj git import";   # Short alias for git import
     
     # Additional useful JJ aliases for busy devs
     jf = "jj git fetch";           # Fetch from remote
@@ -218,14 +219,30 @@
 
     jcp() {
       # Commit and push: commit current work and push to current bookmark or main
+      # Auto-import git state first
+      jj git import >/dev/null 2>&1
+      
       local current_bookmark=$(jj log -r @ --no-graph -T 'bookmarks' | tr -d ' ')
       local using_main_fallback=false
       
+      # If no bookmark on current revision, look at recent ancestors
+      if [ -z "$current_bookmark" ]; then
+        # Check parent revision
+        current_bookmark=$(jj log -r '@-' --no-graph -T 'bookmarks' | tr -d ' ')
+        if [ -z "$current_bookmark" ]; then
+          # Look at recent commits for any non-main bookmark
+          current_bookmark=$(jj log -r '@---' --no-graph -T 'bookmarks' | tr -d ' ' | grep -v '^main$' | head -1)
+        fi
+      fi
+      
+      # Clean bookmark name (remove * indicator)
+      current_bookmark=''${current_bookmark%\*}
+      
       # Determine target bookmark
-      if [ -n "$current_bookmark" ]; then
-        echo "ℹ️  Using existing bookmark: $current_bookmark"
+      if [ -n "$current_bookmark" ] && [ "$current_bookmark" != "main" ]; then
+        echo "ℹ️  Using detected bookmark: $current_bookmark"
       else
-        echo "ℹ️  No bookmark on current revision, using 'main'"
+        echo "ℹ️  No feature bookmark found, using 'main'"
         current_bookmark="main"
         using_main_fallback=true
       fi
@@ -272,44 +289,37 @@
     }
 
     jpr() {
-      # Create PR: create bookmark, commit if needed, push, create PR
+      # Simple: create branch from current changes and commit them there
       if [ $# -eq 0 ]; then
-        echo "Usage: jpr <bookmark-name> [commit-message]"
+        echo "Usage: jpr <branch-name> [commit-message]"
         return 1
       fi
       
       local branch_name="$1"
       local commit_message="$2"
       
-      # Create or update bookmark (handle existing bookmarks)
-      if jj bookmark list | grep -q "^$branch_name:"; then
-        echo "ℹ️  Updating existing bookmark: $branch_name"
-        jj bookmark set "$branch_name" -r @
+      # Auto-import git state first
+      jj git import >/dev/null 2>&1
+      
+      # Create bookmark on current revision with changes
+      echo "ℹ️  Creating branch '$branch_name' from current changes"
+      jj bookmark create "$branch_name" -r @
+      
+      # Commit the changes
+      if [ -n "$commit_message" ]; then
+        jj commit -m "$commit_message"
       else
-        echo "ℹ️  Creating new bookmark: $branch_name"
-        jj bookmark create "$branch_name" -r @
+        echo "ℹ️  Opening editor for commit message..."
+        jj commit
       fi
       
-      # Check if we need to commit changes
-      local has_description=$(jj log -r @ --no-graph -T 'description' | grep -v '^$' | wc -l)
-      if [ "$has_description" -eq 0 ]; then
-        if [ -n "$commit_message" ]; then
-          # Commit with provided message
-          jj commit -m "$commit_message"
-        else
-          # Interactive commit
-          echo "ℹ️  Opening editor for commit message..."
-          jj commit
-        fi
-        
-        # Move bookmark to the committed revision
-        jj bookmark set "$branch_name" -r @-
-      fi
+      # Move bookmark to the committed revision
+      jj bookmark set "$branch_name" -r @-
       
       # Push and create PR
       jj git push -b "$branch_name" --allow-new
       
-      # Create draft PR with GitHub CLI, specifying the branch explicitly
+      # Create draft PR with GitHub CLI
       if command -v gh >/dev/null 2>&1; then
         echo "Creating draft PR..."
         gh pr create --head "$branch_name" --draft --fill
