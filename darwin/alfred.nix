@@ -19,6 +19,7 @@ let
     (mkSite "grok" "https://grok.com/" braveIcon)
     (mkSite "amazon send to kindle" "https://www.amazon.de/sendtokindle" braveIcon)
     (mkSite "amazon kindle library" "https://www.amazon.de/hz/mycd/digital-console/contentlist/pdocs/dateDsc/" braveIcon)
+    (mkSite "reviews" "https://github.com/pulls/review-requested" braveIcon)
   ];
   
   # Work sites - dynamically generated from 1Password at activation time
