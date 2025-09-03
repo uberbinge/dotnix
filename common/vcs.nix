@@ -10,6 +10,7 @@
       ".mise.toml"
       "# Claude Code settings"
       ".claude/settings.local.json"
+      "git_ignored*"
     ];
 
     aliases = {
