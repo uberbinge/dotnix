@@ -111,7 +111,7 @@
       enable = true;
     };
     initContent = ''
-      export PATH="$HOME/.local/bin:$PATH"
+      export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
       eval "$(mise activate zsh)"
       setopt AUTO_CD
       # 1Password SSH Agent configuration (platform-specific paths handled in platform configs)
