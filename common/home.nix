@@ -2,7 +2,6 @@
   imports = [
     ../common/scripts.nix
     ../common/nixvim.nix
-    ../common/packages.nix
     ../common/vcs.nix
   ];
   home = {
@@ -17,6 +16,11 @@
         TEST_USER = "op://Private/test-user/notesPlain";
       };
       packages = with pkgs; [
+        # Common packages for all systems
+        gnumake
+        git
+        ripgrep
+
         # Additional packages specific to this configuration
         bat
         coreutils

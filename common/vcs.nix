@@ -167,14 +167,13 @@
     jlall = "jj log -r '..'";          # Everything
   };
 
+  # JJ workflow functions - comprehensive workflow for busy developers
   programs.zsh.initContent = ''
     # JJ commit function - smart argument handling
     jc() {
       if [ $# -eq 0 ]; then
-        # No arguments - open editor
         jj commit
       else
-        # Has arguments - treat as message
         jj commit -m "$*"
       fi
     }
@@ -182,64 +181,48 @@
     # JJ describe function - smart argument handling
     jds() {
       if [ $# -eq 0 ]; then
-        # No arguments - open editor
         jj describe
       else
-        # Has arguments - treat as message
         jj describe -m "$*"
       fi
     }
 
-    # JJ workflow functions from busy dev guide
+    # Start new work: fetch, sync, clean up merged branches, create revision
     jstart() {
-      # Start new work: fetch, sync, clean up merged branches, create revision
-      local base_branch="''${1:-main}"  # Default to main if no branch specified
-      
+      local base_branch="''${1:-main}"
       echo "ℹ️  Fetching latest changes..."
       jj git fetch
-      
       echo "ℹ️  Syncing with remote..."
       jj git import
-      
       echo "ℹ️  Cleaning up merged bookmarks..."
-      # Clean up bookmarks that no longer exist on remote
       jj bookmark list | grep -v "main" | while read bookmark_line; do
         local bookmark_name=$(echo "$bookmark_line" | cut -d':' -f1 | tr -d ' ')
         if [ -n "$bookmark_name" ]; then
-          # Check if remote branch exists
           if ! jj git fetch --branch "$bookmark_name" 2>/dev/null; then
             echo "🧹 Cleaning up merged bookmark: $bookmark_name"
             jj bookmark delete "$bookmark_name" 2>/dev/null || true
           fi
         fi
       done
-      
       echo "ℹ️  Starting new work from '$base_branch'"
       jj new "$base_branch"
     }
 
+    # Commit and push: commit current work and push to current bookmark or main
     jcp() {
-      # Commit and push: commit current work and push to current bookmark or main
-      # Auto-import git state first
       jj git import >/dev/null 2>&1
-      
       local current_bookmark=$(jj log -r @ --no-graph -T 'bookmarks' | tr -d ' ')
       local using_main_fallback=false
-      
-      # If no bookmark on current revision, look at recent ancestors
+
       if [ -z "$current_bookmark" ]; then
-        # Check parent revision
         current_bookmark=$(jj log -r '@-' --no-graph -T 'bookmarks' | tr -d ' ')
         if [ -z "$current_bookmark" ]; then
-          # Look at recent commits for any non-main bookmark
           current_bookmark=$(jj log -r '@---' --no-graph -T 'bookmarks' | tr -d ' ' | grep -v '^main$' | head -1)
         fi
       fi
-      
-      # Clean bookmark name (remove * indicator)
+
       current_bookmark=''${current_bookmark%\*}
-      
-      # Determine target bookmark
+
       if [ -n "$current_bookmark" ] && [ "$current_bookmark" != "main" ]; then
         echo "ℹ️  Using detected bookmark: $current_bookmark"
       else
@@ -247,23 +230,19 @@
         current_bookmark="main"
         using_main_fallback=true
       fi
-      
-      # Commit the changes
+
       if [ $# -eq 0 ]; then
-        # No arguments - interactive commit
         if ! jj commit; then
           echo "❌ Commit failed"
           return 1
         fi
       else
-        # Has arguments - commit with message
         if ! jj commit -m "$*"; then
           echo "❌ Commit failed"
           return 1
         fi
       fi
-      
-      # Move the bookmark to the committed revision
+
       if [ "$using_main_fallback" = true ]; then
         echo "ℹ️  Moving 'main' bookmark to committed revision"
         if ! jj bookmark set main -r @-; then
@@ -271,56 +250,46 @@
           return 1
         fi
       else
-        # Move the existing bookmark to the new commit to keep it tracking
         echo "ℹ️  Moving '$current_bookmark' bookmark to committed revision"
         if ! jj bookmark set "$current_bookmark" -r @-; then
           echo "❌ Failed to move bookmark"
           return 1
         fi
       fi
-      
-      # Push the bookmark
+
       echo "ℹ️  Pushing bookmark: $current_bookmark"
       if ! jj git push -b "$current_bookmark" --allow-new; then
         echo "❌ Push failed"
         return 1
       fi
-      
+
       echo "✅ Successfully committed and pushed to $current_bookmark"
     }
 
+    # Create branch from current changes and commit them there
     jpr() {
-      # Simple: create branch from current changes and commit them there
       if [ $# -eq 0 ]; then
         echo "Usage: jpr <branch-name> [commit-message]"
         return 1
       fi
-      
+
       local branch_name="$1"
       local commit_message="$2"
-      
-      # Auto-import git state first
+
       jj git import >/dev/null 2>&1
-      
-      # Create bookmark on current revision with changes
       echo "ℹ️  Creating branch '$branch_name' from current changes"
       jj bookmark create "$branch_name" -r @
-      
-      # Commit the changes
+
       if [ -n "$commit_message" ]; then
         jj commit -m "$commit_message"
       else
         echo "ℹ️  Opening editor for commit message..."
         jj commit
       fi
-      
-      # Move bookmark to the committed revision
+
       jj bookmark set "$branch_name" -r @-
-      
-      # Push and create PR
       jj git push -b "$branch_name" --allow-new
-      
-      # Create draft PR with GitHub CLI
+
       if command -v gh >/dev/null 2>&1; then
         echo "Creating draft PR..."
         gh pr create --head "$branch_name" --draft --fill
@@ -329,8 +298,8 @@
       fi
     }
 
+    # Merge two revisions: jj new parent1 parent2
     jmerge() {
-      # Merge two revisions: jj new parent1 parent2
       if [ $# -lt 2 ]; then
         echo "Usage: jmerge <parent1> <parent2>"
         return 1
