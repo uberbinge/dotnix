@@ -22,7 +22,7 @@
   outputs = inputs@{ self, nixpkgs, nix-darwin, home-manager, nix-homebrew, nixvim, website-opener }:
     let
       lib = nixpkgs.lib;
-      systems = [ "aarch64-darwin" "aarch64-linux" ];
+      systems = [ "aarch64-darwin" "aarch64-linux" "x86_64-linux" ];
       forAllSystems = lib.genAttrs systems;
       
       # Default username (can be overridden via FLAKE_USERNAME env var)
