@@ -49,7 +49,7 @@
             home-manager.extraSpecialArgs = specialArgs;
             home-manager.users.${username}.imports = [
               ./common/home.nix
-              nixvim.homeManagerModules.nixvim
+              nixvim.homeModules.nixvim
             ];
           };
 
