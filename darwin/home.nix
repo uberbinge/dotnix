@@ -16,10 +16,8 @@
   # macOS-specific shell aliases
   programs.zsh.shellAliases = {
     # Work-specific AWS aliases (customize for your organization)
-    cl4 = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude --model eu.anthropic.claude-sonnet-4-20250514-v1:0";
-    cl4d = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude --dangerously-skip-permissions --model eu.anthropic.claude-sonnet-4-20250514-v1:0";
-    cl = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude";
-    cld = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude --dangerously-skip-permissions";
+    cl4 = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude --model eu.anthropic.claude-sonnet-4-5-20250929-v1:0";
+    cl4d = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude --dangerously-skip-permissions --model eu.anthropic.claude-sonnet-4-5-20250929-v1:0";
     unset-aws = "unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE";
     # macOS-specific iCloud Obsidian path
     daily = "cd \"$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/\" && cl4 --continue";
