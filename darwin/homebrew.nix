@@ -41,7 +41,7 @@
       "ghostty@tip"
       "raycast"
       "lunar"
-      "bartender"
+      "jordanbaird-ice"
       "choosy"
       "deepl"
       "obsidian"
