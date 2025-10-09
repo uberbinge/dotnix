@@ -16,11 +16,11 @@
   # macOS-specific shell aliases
   programs.zsh.shellAliases = {
     # Work-specific AWS aliases (customize for your organization)
-    cl4 = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude --model eu.anthropic.claude-sonnet-4-5-20250929-v1:0";
-    cl4d = "aws-sso exec -p ai-coding.tools-ai-coding-maintainers -- claude --dangerously-skip-permissions --model eu.anthropic.claude-sonnet-4-5-20250929-v1:0";
+    cl4 = "claude --continue --model eu.anthropic.claude-sonnet-4-5-20250929-v1:0";
+    cl4d = "claude --dangerously-skip-permissions --continue --model eu.anthropic.claude-sonnet-4-5-20250929-v1:0";
     unset-aws = "unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE";
     # macOS-specific iCloud Obsidian path
-    daily = "cd \"$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/\" && cl4 --continue";
+    daily = "cd \"$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/\" && cl4";
   };
 
   imports = [
@@ -29,7 +29,7 @@
 
   home.packages = with pkgs; [
     # Darwin-specific packages can be added here if needed
-    
+
     # Simple homebrew update script
     (writeShellScriptBin "update-homebrew-apps" ''
       #!/bin/bash
@@ -50,17 +50,17 @@ idiomatic_version_file_enable_tools = []
   home.file.".config/ghostty/config".text = ''
     # Auto-switch between light and dark themes with macOS appearance
     theme = dark:catppuccin-mocha,light:catppuccin-latte
-    
+
     # Font configuration
     font-family = FiraCode Nerd Font Mono
     font-size = 15
-    
+
     # Save window state and layouts
     window-save-state = always
-    
+
     # Native macOS titlebar
     macos-titlebar-style = native
-    
+
     # Key bindings
     keybind = shift+enter=text:\n
   '';
