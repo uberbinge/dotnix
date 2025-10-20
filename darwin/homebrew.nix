@@ -80,6 +80,9 @@
       "android-platform-tools"
       "figma"
       "miro"
+
+
+      "codex"        # OpenAI coding agent CLI
       
       # Fonts (managed by Nix fonts/ directory)
       "font-fira-code-nerd-font"
