@@ -10,9 +10,9 @@
       sessionVariables = {
         EDITOR = "nvim";
         # API Keys from 1Password (family account)
-        TELEGRAM_BOT = "op://Private/telegram-bot/notesPlain";
-        TELEGRAM_CHAT_ID = "op://Private/telegram-chat-id/notesPlain";
-        BRAVE_API_KEY = "op://Private/brave-api-key/notesPlain"; 
+        # Note: op:// references don't auto-resolve in sessionVariables
+        # Functions that need secrets fetch them directly using 'op read'
+        BRAVE_API_KEY = "op://Private/brave-api-key/notesPlain";
         TEST_USER = "op://Private/test-user/notesPlain";
       };
       packages = with pkgs; [
@@ -134,11 +134,30 @@
       # fi
 
       telegram() {
-        curl -s -X POST https://api.telegram.org/bot$TELEGRAM_BOT/sendMessage \
-                        -d chat_id=$TELEGRAM_CHAT_ID \
-                        -d text="$1"
+        local bot_token=$(op read "op://Private/telegram-bot/notesPlain" 2>/dev/null)
+        local chat_id=$(op read "op://Private/telegram-chat-id/notesPlain" 2>/dev/null)
+        if [[ -z "''$bot_token" || -z "''$chat_id" ]]; then
+          echo "❌ Failed to read Telegram credentials from 1Password"
+          return 1
+        fi
+        curl -s -X POST "https://api.telegram.org/bot''${bot_token}/sendMessage" \
+                        -d "chat_id=''${chat_id}" \
+                        -d "text=''$1"
         }
-        
+
+      toDiscordTest() {
+        local webhook=$(op read "op://Private/discord-test-webhook/notesPlain" 2>/dev/null)
+        if [[ -z "''$webhook" ]]; then
+          echo "❌ Failed to read Discord webhook from 1Password"
+          return 1
+        fi
+        local payload=$(jq -n --arg content "''$1" '{content: $content}')
+        curl -s -H "Content-Type: application/json" \
+             -X POST \
+             -d "''$payload" \
+             "''$webhook"
+        }
+
       # Cross-platform home switch function
       hs() {
         cd ~/dev/dotnix
