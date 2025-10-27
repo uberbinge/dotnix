@@ -16,11 +16,11 @@
   # macOS-specific shell aliases
   programs.zsh.shellAliases = {
     # Work-specific AWS aliases (customize for your organization)
-    cl4 = "claude --continue --model eu.anthropic.claude-sonnet-4-5-20250929-v1:0";
-    cl4d = "claude --dangerously-skip-permissions --continue --model eu.anthropic.claude-sonnet-4-5-20250929-v1:0";
+    cl4c = "claude --continue";
+    cl4dc = "claude --dangerously-skip-permissions --continue";
     unset-aws = "unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE";
     # macOS-specific iCloud Obsidian path
-    daily = "cd \"$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/\" && cl4";
+    daily = "cd \"$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/\" && cl4c";
   };
 
   imports = [
