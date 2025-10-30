@@ -51,7 +51,7 @@
       "1password"
       "1password-cli"
       "nordvpn"
-      "tailscale"
+      "tailscale-app"
       "parallels"
       "jetbrains-toolbox"
       
@@ -70,10 +70,11 @@
       "firefox"
       "google-chrome"
       "microsoft-edge"
-      "zen-browser"
+      "zen"
       
       # Development Tools
       "zed"
+      "cursor"
       "orbstack"
       "chatgpt"
       "visual-studio-code"
