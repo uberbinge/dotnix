@@ -30,14 +30,14 @@
     shell = pkgs.zsh;
   };
 
-# Font configuration
-fonts.packages = with pkgs; [
-  noto-fonts
-  noto-fonts-emoji
-  liberation_ttf
-  fira-code
-  fira-code-symbols
-];
+  # Font configuration
+  fonts.packages = with pkgs; [
+    noto-fonts
+    noto-fonts-color-emoji
+    liberation_ttf
+    fira-code
+    fira-code-symbols
+  ];
   # Enable Zsh
   programs.zsh.enable = true;
 
