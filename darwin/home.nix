@@ -20,7 +20,7 @@
     cl4dc = "claude --dangerously-skip-permissions --continue";
     unset-aws = "unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE";
     # macOS-specific iCloud Obsidian path
-    daily = "cd \"$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/\" && cl4c";
+    daily = "cd \"$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/den/daily\" && cl4c";
   };
 
   imports = [
