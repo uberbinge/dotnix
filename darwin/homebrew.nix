@@ -95,12 +95,13 @@
       "Magnet" = 441258766;                    # Window manager
       "AdBlock Pro" = 1018301773;              # Safari ad blocker
       "Drafts" = 1435957248;                   # Quick note capture
-      
+      "Goodnotes" = 1444383602;                # AI Notes, Docs, PDF
+
       # Reading & Research
       "Kindle" = 302584613;                    # Amazon e-book reader
       "Instapaper" = 288545208;                # Read-later service
       "Obsidian Web Clipper" = 6720708363;    # Web clipper for Obsidian
-      
+
       # Smart Home & Security
       "Home Assistant" = 1099568401;           # Smart home control
       "Okta Verify" = 490179405;               # 2FA authentication
