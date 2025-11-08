@@ -147,7 +147,7 @@
     
     # Operation log and undo (essential for busy devs!)
     jop = "jj operation log";      # Show operation history
-    jun = "jj operation undo";     # Undo last operation
+    jun = "jj operation revert";   # Undo last operation (formerly 'undo')
     jor = "jj operation restore";  # Restore to specific operation
     
     # Bookmark management (branches)
