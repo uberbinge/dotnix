@@ -10,10 +10,6 @@
       brewfile = true;
       lockfiles = true;
     };
-    # Remove all taps - no longer needed (fonts moved to main repo)
-    taps = [
-      # "homebrew/cask-fonts" - REMOVED (fonts now in main cask repo)
-    ];
     brews = [
       "mas" # Mac App Store CLI
       "mise"
@@ -30,9 +26,6 @@
       "gnupg"        # GNU Privacy Guard
       "gemini-cli"   # Gemini protocol client
       
-      # MANUAL INSTALLS (keep in Brewfile):
-      # - usage: CLI usage statistics (niche tool)
-      # - ffmpeg + codecs: Video processing (complex dependency tree)
     ];
     casks = [
       # Core productivity (existing)
@@ -88,7 +81,6 @@
       # Fonts (managed by Nix fonts/ directory)
       "font-fira-code-nerd-font"
       
-      # MANUAL INSTALLS (keep in Brewfile):
     ];
     masApps = {
       # Productivity & System
@@ -97,8 +89,6 @@
       "Drafts" = 1435957248;                   # Quick note capture
       "Goodnotes" = 1444383602;                # AI Notes, Docs, PDF
 
-      # Reading & Research
-      "Kindle" = 302584613;                    # Amazon e-book reader
       "Instapaper" = 288545208;                # Read-later service
       "Obsidian Web Clipper" = 6720708363;    # Web clipper for Obsidian
 
