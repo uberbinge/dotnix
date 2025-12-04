@@ -36,7 +36,6 @@
       "lunar"
       "jordanbaird-ice"
       "choosy"
-      "deepl"
       "obsidian"
       "beeper"
       

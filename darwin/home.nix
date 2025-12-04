@@ -48,8 +48,8 @@ idiomatic_version_file_enable_tools = []
 
   # Ghostty terminal configuration (installed via Homebrew)
   home.file.".config/ghostty/config".text = ''
-    # Auto-switch between light and dark themes with macOS appearance
-    theme = dark:Catppuccin Mocha,light:Catppuccin Latte
+    # Dark theme only
+    theme = Catppuccin Mocha
 
     # Font configuration
     font-family = FiraCode Nerd Font Mono
