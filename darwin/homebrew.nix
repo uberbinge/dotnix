@@ -13,19 +13,22 @@
     brews = [
       "mas" # Mac App Store CLI
       "mise"
-      
+
       # Development tools
       "aws-sso-cli"  # AWS SSO authentication
       "awscli"       # AWS command line interface
       "just"         # Command runner
       "helm"         # Kubernetes package manager
       "scrcpy"       # Android screen mirroring
-      
+
       # System tools
       "pandoc"       # Universal document converter
       "gnupg"        # GNU Privacy Guard
       "gemini-cli"   # Gemini protocol client
-      
+
+      # AI tools
+      "charmbracelet/tap/crush"  # AI coding agent for terminal
+
     ];
     casks = [
       # Core productivity (existing)
