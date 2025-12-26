@@ -45,8 +45,21 @@ let
     echo "BORG_PASSPHRASE=$BORG_PASSPHRASE" > "${configDir}/.env"
     chmod 600 "${configDir}/.env"
 
-    echo "Starting Borgmatic container..."
+    # Copy symlinked files to real files (Docker can't follow nix store symlinks)
     cd "${configDir}"
+    for f in Dockerfile crontab docker-compose.yml; do
+      if [ -L "$f" ]; then
+        cp -L "$f" "$f.tmp" && rm "$f" && mv "$f.tmp" "$f"
+      fi
+    done
+    # Also copy config.d files
+    for f in config.d/*.yaml; do
+      if [ -L "$f" ]; then
+        cp -L "$f" "$f.tmp" && rm "$f" && mv "$f.tmp" "$f"
+      fi
+    done
+
+    echo "Starting Borgmatic container..."
     ${pkgs.docker-compose}/bin/docker-compose up -d --build
     echo "Borgmatic started"
   '';
@@ -213,6 +226,7 @@ in
     service = "jellyfin";
     subAccount = "sub2";
     sourceDirs = [
+      "/sources/jellyfin/config"
       "/sources/jellyfin/jellyfin-books"
       "/sources/jellyfin/jellyfin-library"
     ];
@@ -275,42 +289,36 @@ services:
       - ./config.d:/etc/borgmatic/config.d:ro
       - ./ssh:/ssh:ro
       - ./logs:/var/log/borgmatic
-      - ${mediaVolume}/immich/library:/sources/immich:ro
+      - ${mediaVolume}/immich/library/upload:/sources/immich:ro
       - ${mediaVolume}/jellyfin:/sources/jellyfin:ro
       - ${mediaVolume}/paperless:/sources/paperless:ro
   '';
 
-  # Borgmatic crontab for scheduled backups
+  # Borgmatic crontab for scheduled backups (Alpine format - no user field)
   home.file."${configDir}/crontab".text = ''
 # Borgmatic backup schedule - run sequentially to avoid resource conflicts
-# Redirect all output to log files for visibility
 
-# Immich backup (2TB) - 2 AM daily with progress logging
-0 2 * * * root borgmatic --config /etc/borgmatic/config.d/immich.yaml --verbosity 1 --stats --progress >> /var/log/borgmatic/immich-cron.log 2>&1
+# Immich backup (2TB) - 2 AM daily
+0 2 * * * borgmatic --config /etc/borgmatic/config.d/immich.yaml --verbosity 1 --stats >> /var/log/borgmatic/immich-cron.log 2>&1
 
 # Jellyfin backup - 4 AM daily
-0 4 * * * root borgmatic --config /etc/borgmatic/config.d/jellyfin.yaml --verbosity 1 --stats --progress >> /var/log/borgmatic/jellyfin-cron.log 2>&1
+0 4 * * * borgmatic --config /etc/borgmatic/config.d/jellyfin.yaml --verbosity 1 --stats >> /var/log/borgmatic/jellyfin-cron.log 2>&1
 
 # Paperless backup - 5 AM daily
-0 5 * * * root borgmatic --config /etc/borgmatic/config.d/paperless.yaml --verbosity 1 --stats --progress >> /var/log/borgmatic/paperless-cron.log 2>&1
-
-# Empty line required at end of crontab
+0 5 * * * borgmatic --config /etc/borgmatic/config.d/paperless.yaml --verbosity 1 --stats >> /var/log/borgmatic/paperless-cron.log 2>&1
   '';
 
   # Borgmatic Dockerfile
   home.file."${configDir}/Dockerfile".text = ''
 FROM ghcr.io/borgmatic-collective/borgmatic:1.8
 
-# Install cron
-RUN apt-get update && apt-get install -y cron && rm -rf /var/lib/apt/lists/*
+# Copy crontab file (Alpine uses /etc/crontabs/root)
+COPY crontab /etc/crontabs/root
+RUN chmod 0600 /etc/crontabs/root
 
-# Copy crontab file
-COPY crontab /etc/cron.d/borgmatic-cron
-RUN chmod 0644 /etc/cron.d/borgmatic-cron && crontab /etc/cron.d/borgmatic-cron
-
-# Create log directory and start both cron and tail logs
+# Create log directory and start crond (Alpine's cron daemon)
 RUN mkdir -p /var/log/borgmatic
-CMD ["sh", "-c", "cron && tail -f /var/log/borgmatic/* /var/log/cron.log"]
+CMD ["sh", "-c", "crond -f -l 2"]
   '';
 
   # launchd service for auto-start
