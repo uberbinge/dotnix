@@ -54,7 +54,6 @@
           mkCommonHomeConfig = {
             home-manager.useGlobalPkgs = lib.mkForce true;
             home-manager.useUserPackages = lib.mkForce true;
-            home-manager.backupFileExtension = "backup";
             home-manager.extraSpecialArgs = specialArgs;
             home-manager.users.${username}.imports = [
               ./common/home.nix
