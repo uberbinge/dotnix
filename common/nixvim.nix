@@ -223,8 +223,11 @@ in
         web-devicons.enable = true;
         treesitter = {
           enable = true;
+          nixGrammars = true;
+          grammarPackages = pkgs.vimPlugins.nvim-treesitter.allGrammars;
           settings = {
-            ensure_installed = [ "bash" "c" "diff" "html" "lua" "luadoc" "markdown" "markdown_inline" "query" "vim" "vimdoc" ];
+            auto_install = false;
+            sync_install = false;
             incremental_selection.enable = true;
             indent = { enable = true; };
             highlight = { enable = true; disable = [ "ruby" ]; };

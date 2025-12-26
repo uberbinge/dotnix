@@ -158,26 +158,26 @@
              "''$webhook"
         }
 
-      # Cross-platform home switch function
+      # Cross-platform home switch function (auto-detects machine)
       hs() {
         cd ~/dev/dotnix
         export FLAKE_USERNAME=$(whoami)
-        
+        local hostname=$(hostname -s)
+        local flake_config="default"
+
+        # Detect which flake config to use based on hostname
+        if [[ "$hostname" == *"mini"* || "$hostname" == *"Mini"* ]]; then
+          flake_config="mini"
+        fi
+
         if [[ "$OSTYPE" == "darwin"* ]]; then
-          # macOS - use darwin-rebuild
-          sudo -E darwin-rebuild switch --flake .#default
+          sudo -E darwin-rebuild switch --flake .#"$flake_config"
         elif command -v nixos-rebuild >/dev/null 2>&1; then
-          # NixOS - use nixos-rebuild  
           sudo -E nixos-rebuild switch --flake .#nixos
         elif command -v home-manager >/dev/null 2>&1; then
-          # Linux with home-manager only
           home-manager switch --flake .#"$FLAKE_USERNAME"
         else
           echo "❌ No supported Nix rebuild command found"
-          echo "Available options:"
-          echo "  - darwin-rebuild (macOS)"
-          echo "  - nixos-rebuild (NixOS)" 
-          echo "  - home-manager (Linux)"
           return 1
         fi
       }

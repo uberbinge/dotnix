@@ -33,7 +33,7 @@
         let envUser = builtins.getEnv "FLAKE_USERNAME";
         in if envUser != "" then envUser else defaultUsername;
 
-      mkConfiguration = { system, username, hostname ? null, isNixOS ? false }:
+      mkConfiguration = { system, username, hostname ? null, isNixOS ? false, extraDarwinModules ? [], extraHomeModules ? [] }:
         let
           pkgs = import nixpkgs { inherit system; };
           specialArgs = inputs // {
@@ -43,9 +43,10 @@
           };
 
           # Common Home Manager config (reusable across platforms)
-          mkCommonHomeConfig = { 
+          mkCommonHomeConfig = {
             home-manager.useGlobalPkgs = lib.mkForce true;
             home-manager.useUserPackages = lib.mkForce true;
+            home-manager.backupFileExtension = "backup";
             home-manager.extraSpecialArgs = specialArgs;
             home-manager.users.${username}.imports = [
               ./common/home.nix
@@ -58,6 +59,7 @@
               enable = lib.mkForce true;
               enableRosetta = lib.mkForce true;
               user = lib.mkForce username;
+              autoMigrate = true;  # Migrate existing Homebrew installation
             };
           };
 
@@ -91,13 +93,13 @@
                   mkCommonHomeConfig
                   {
                     home-manager.users.${username} = { pkgs, ... }: {
-                      imports = [ ./darwin/home.nix ];          
+                      imports = [ ./darwin/home.nix ] ++ extraHomeModules;
                       home.packages = [ website-opener.packages.${system}.default ];
                     };
                   }
                   nix-homebrew.darwinModules.nix-homebrew
                   darwinModules
-                ];
+                ] ++ extraDarwinModules;
               }
             else
               home-manager.lib.homeManagerConfiguration {
@@ -112,18 +114,36 @@
 
     in
     {
-      # Universal Darwin configuration - works with any hostname
-      darwinConfigurations = let
-        # Single reusable macOS configuration
-        universalMacConfig = mkConfiguration {
+      # Darwin configurations for different machines
+      darwinConfigurations = {
+        # Work Mac configuration
+        # Usage: darwin-rebuild switch --flake .#work
+        work = mkConfiguration {
           system = "aarch64-darwin";
           username = currentUsername;  # Uses FLAKE_USERNAME env var or default
-          hostname = "mac";  # Generic hostname, actual hostname doesn't matter
+          hostname = "work";
+          extraDarwinModules = [ ./darwin/work/homebrew.nix ];
+          extraHomeModules = [];
         };
-      in {
-        # Universal configuration that works on any macOS machine
-        # Usage: darwin-rebuild switch --flake .#default
-        default = universalMacConfig;
+
+        # Mac Mini media server configuration
+        # Usage: darwin-rebuild switch --flake .#mini
+        mini = mkConfiguration {
+          system = "aarch64-darwin";
+          username = "waqas";
+          hostname = "mini";
+          extraDarwinModules = [ ./darwin/mini/homebrew.nix ];
+          extraHomeModules = [ ./darwin/mini ];
+        };
+
+        # Keep 'default' as alias to 'work' for backwards compatibility
+        default = mkConfiguration {
+          system = "aarch64-darwin";
+          username = currentUsername;
+          hostname = "work";
+          extraDarwinModules = [ ./darwin/work/homebrew.nix ];
+          extraHomeModules = [];
+        };
       };
 
       homeConfigurations."${currentUsername}" = mkConfiguration {

@@ -254,9 +254,10 @@ install_nix() {
         warning "Force reinstalling Nix..."
     fi
     
-    log "Installing Nix..."
+    log "Installing Nix (without Determinate Nixd for nix-darwin compatibility)..."
     if [ "$DRY_RUN" != true ]; then
-        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+        # Use --determinate false to skip Determinate Nixd daemon (conflicts with nix-darwin)
+        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --determinate false
         
         # Source Nix environment for current session
         if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
