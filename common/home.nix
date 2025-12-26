@@ -96,6 +96,12 @@
         error_symbol = "[❯](bold red)";
         disabled = false;
       };
+      time = {
+        disabled = false;
+        format = "[$time]($style) ";
+        time_format = "%H:%M:%S";
+        style = "dimmed white";
+      };
     };
   };
 
