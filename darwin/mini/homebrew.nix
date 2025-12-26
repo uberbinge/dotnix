@@ -1,40 +1,14 @@
 # darwin/mini/homebrew.nix
-# Mac Mini media server specific Homebrew apps
-{ pkgs, lib, ... }:
+# Mac Mini ONLY - apps not needed on other machines
+# Currently empty - all mini apps are in shared configs:
+#   - homebrew/common.nix (essentials)
+#   - homebrew/development.nix (dev tools)
+#   - homebrew/productivity.nix (productivity apps)
+{ ... }:
 {
-  homebrew = {
-    taps = [
-      "charmbracelet/tap"
-    ];
-
-    brews = [
-      # Development tools
-      "mise"
-      "aws-sso-cli"
-      "awscli"
-
-      # AI tools
-      "gemini-cli"
-      "crush" # charmbracelet/tap
-    ];
-
-    casks = [
-      # Container runtime for media services
-      "orbstack"
-
-      # Development (for remote editing)
-      "cursor"
-      "visual-studio-code"
-
-      # Productivity
-      "alfred"
-      "choosy"
-      "obsidian"
-      "chatgpt"
-      "codex"
-
-      # Security
-      "nordvpn"
-    ];
-  };
+  # Add mini-specific homebrew packages here if needed
+  # homebrew = {
+  #   brews = [ ];
+  #   casks = [ ];
+  # };
 }

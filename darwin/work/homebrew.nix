@@ -1,44 +1,32 @@
 # darwin/work/homebrew.nix
-# Work Mac specific Homebrew apps
-{ pkgs, lib, ... }:
+# Work Mac ONLY - apps not needed on other machines
+{ ... }:
 {
   homebrew = {
     brews = [
-      "mise"
-
-      # Development tools
-      "aws-sso-cli"
-      "awscli"
+      # Build & deployment
       "just"
       "helm"
       "scrcpy"
 
-      # System tools
+      # Document processing
       "pandoc"
       "gnupg"
-      "gemini-cli"
-
-      # AI tools
-      "charmbracelet/tap/crush"
     ];
 
     casks = [
-      # Productivity
-      "alfred"
+      # Productivity (work-specific)
       "caffeine"
       "raycast"
       "lunar"
       "jordanbaird-ice"
-      "choosy"
-      "obsidian"
       "beeper"
 
-      # Security & Virtualization
-      "nordvpn"
+      # Virtualization & enterprise
       "parallels"
       "jetbrains-toolbox"
 
-      # Communication Apps
+      # Communication (work requires these)
       "discord"
       "slack"
       "telegram"
@@ -47,7 +35,7 @@
       "microsoft-teams"
       "microsoft-outlook"
 
-      # Browsers
+      # Browsers (need multiple for testing)
       "arc"
       "brave-browser"
       "firefox"
@@ -55,16 +43,11 @@
       "microsoft-edge"
       "zen"
 
-      # Development Tools
+      # Development (work-specific)
       "zed"
-      "cursor"
-      "orbstack"
-      "chatgpt"
-      "visual-studio-code"
       "android-platform-tools"
       "figma"
       "miro"
-      "codex"
     ];
   };
 }

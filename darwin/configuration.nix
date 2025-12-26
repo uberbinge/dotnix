@@ -11,7 +11,9 @@ in
   ];
 
   imports = [
-    ./homebrew-common.nix  # Shared Homebrew apps for all machines
+    ./homebrew/common.nix       # Essential apps (1password, ghostty, tailscale)
+    ./homebrew/development.nix  # Dev tools (mise, aws, orbstack, editors)
+    ./homebrew/productivity.nix # Productivity (alfred, obsidian, nordvpn)
     ./defaults.nix
   ];
 

@@ -28,13 +28,18 @@
       systems = [ "aarch64-darwin" "aarch64-linux" "x86_64-linux" ];
       forAllSystems = lib.genAttrs systems;
       
-      # Default username (can be overridden via FLAKE_USERNAME env var)
-      defaultUsername = "waqas.ahmed";
-      
-      # Get username from environment or use default
-      currentUsername = 
+      # Username configuration
+      # Work machine: uses FLAKE_USERNAME env var or defaults to "waqas.ahmed"
+      # Mini: fixed single-user machine
+      getEnvUsername = default:
         let envUser = builtins.getEnv "FLAKE_USERNAME";
-        in if envUser != "" then envUser else defaultUsername;
+        in if envUser != "" then envUser else default;
+
+      usernames = {
+        work = getEnvUsername "waqas.ahmed";
+        mini = "waqas";  # Single-user media server
+        linux = getEnvUsername "waqas.ahmed";
+      };
 
       mkConfiguration = { system, username, hostname ? null, isNixOS ? false, extraDarwinModules ? [], extraHomeModules ? [] }:
         let
@@ -121,7 +126,7 @@
         # Usage: darwin-rebuild switch --flake .#work
         work = mkConfiguration {
           system = "aarch64-darwin";
-          username = currentUsername;  # Uses FLAKE_USERNAME env var or default
+          username = usernames.work;
           hostname = "work";
           extraDarwinModules = [ ./darwin/work/homebrew.nix ];
           extraHomeModules = [];
@@ -131,7 +136,7 @@
         # Usage: darwin-rebuild switch --flake .#mini
         mini = mkConfiguration {
           system = "aarch64-darwin";
-          username = "waqas";
+          username = usernames.mini;
           hostname = "mini";
           extraDarwinModules = [ ./darwin/mini/homebrew.nix ];
           extraHomeModules = [ ./darwin/mini ];
@@ -141,14 +146,14 @@
         default = self.darwinConfigurations.work;
       };
 
-      homeConfigurations."${currentUsername}" = mkConfiguration {
+      homeConfigurations."${usernames.linux}" = mkConfiguration {
         system = "aarch64-linux";
-        username = currentUsername;  # Uses FLAKE_USERNAME env var or default  
+        username = usernames.linux;
       };
 
       nixosConfigurations.nixos = mkConfiguration {
         system = "aarch64-linux";
-        username = currentUsername;  # Uses FLAKE_USERNAME env var or default
+        username = usernames.linux;
         isNixOS = true;
       };
 
