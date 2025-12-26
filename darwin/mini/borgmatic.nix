@@ -58,6 +58,10 @@ let
         cp -L "$f" "$f.tmp" && rm "$f" && mv "$f.tmp" "$f"
       fi
     done
+    # Copy ssh/known_hosts if it's a symlink
+    if [ -L "ssh/known_hosts" ]; then
+      cp -L "ssh/known_hosts" "ssh/known_hosts.tmp" && rm "ssh/known_hosts" && mv "ssh/known_hosts.tmp" "ssh/known_hosts"
+    fi
 
     echo "Starting Borgmatic container..."
     ${pkgs.docker-compose}/bin/docker-compose up -d --build
@@ -208,7 +212,9 @@ let
 in
 {
   # Immich backup config
-  home.file."${configDir}/config.d/immich.yaml".text = mkBorgmaticConfig {
+  home.file."${configDir}/config.d/immich.yaml" = {
+    force = true;
+    text = mkBorgmaticConfig {
     service = "immich";
     subAccount = "sub1";
     sourceDirs = [ "/sources/immich" ];
@@ -219,10 +225,13 @@ in
       "**/.DS_Store"
       "**/.Trash/**"
     ];
+    };
   };
 
   # Jellyfin backup config
-  home.file."${configDir}/config.d/jellyfin.yaml".text = mkBorgmaticConfig {
+  home.file."${configDir}/config.d/jellyfin.yaml" = {
+    force = true;
+    text = mkBorgmaticConfig {
     service = "jellyfin";
     subAccount = "sub2";
     sourceDirs = [
@@ -242,10 +251,13 @@ in
       "**/tmp/**"
     ];
     checkArchives = true;  # Original had archives check
+    };
   };
 
   # Paperless backup config (longer retention - documents are critical)
-  home.file."${configDir}/config.d/paperless.yaml".text = mkBorgmaticConfig {
+  home.file."${configDir}/config.d/paperless.yaml" = {
+    force = true;
+    text = mkBorgmaticConfig {
     service = "paperless";
     subAccount = "sub3";
     sourceDirs = [ "/sources/paperless" ];
@@ -255,6 +267,7 @@ in
     ];
     checkArchives = true;  # Original had archives check
     keepMonthly = 12;      # Keep 1 year of monthly backups for documents
+    };
   };
 
   # Management scripts
@@ -270,7 +283,9 @@ in
   ];
 
   # Borgmatic Docker Compose
-  home.file."${configDir}/docker-compose.yml".text = ''
+  home.file."${configDir}/docker-compose.yml" = {
+    force = true;
+    text = ''
 name: borgmatic
 
 services:
@@ -293,9 +308,12 @@ services:
       - ${mediaVolume}/jellyfin:/sources/jellyfin:ro
       - ${mediaVolume}/paperless:/sources/paperless:ro
   '';
+  };
 
   # Borgmatic crontab for scheduled backups (Alpine format - no user field)
-  home.file."${configDir}/crontab".text = ''
+  home.file."${configDir}/crontab" = {
+    force = true;
+    text = ''
 # Borgmatic backup schedule - run sequentially to avoid resource conflicts
 
 # Immich backup (2TB) - 2 AM daily
@@ -307,9 +325,12 @@ services:
 # Paperless backup - 5 AM daily
 0 5 * * * borgmatic --config /etc/borgmatic/config.d/paperless.yaml --verbosity 1 --stats >> /var/log/borgmatic/paperless-cron.log 2>&1
   '';
+  };
 
   # Borgmatic Dockerfile
-  home.file."${configDir}/Dockerfile".text = ''
+  home.file."${configDir}/Dockerfile" = {
+    force = true;
+    text = ''
 FROM ghcr.io/borgmatic-collective/borgmatic:1.8
 
 # Copy crontab file (Alpine uses /etc/crontabs/root)
@@ -320,6 +341,7 @@ RUN chmod 0600 /etc/crontabs/root
 RUN mkdir -p /var/log/borgmatic
 CMD ["sh", "-c", "crond -f -l 2"]
   '';
+  };
 
   # launchd service for auto-start
   launchd.agents.borgmatic = {
@@ -343,4 +365,14 @@ CMD ["sh", "-c", "crond -f -l 2"]
 
   # Create log directory
   home.file."${config.home.homeDirectory}/.local/share/borgmatic/.keep".text = "";
+
+  # SSH known_hosts for Hetzner Storage Box
+  home.file."${configDir}/ssh/known_hosts" = {
+    force = true;
+    text = ''
+    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
+    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
+    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
+  '';
+  };
 }
