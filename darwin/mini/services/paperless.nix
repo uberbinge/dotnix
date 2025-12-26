@@ -87,16 +87,28 @@ in
     services:
       broker:
         container_name: paperless_broker
-        image: redis:7
+        image: docker.io/library/redis:7
         restart: unless-stopped
         volumes:
           - redisdata:/data
 
-      paperless:
-        container_name: paperless
+      db:
+        container_name: paperless_db
+        image: docker.io/library/postgres:17
+        restart: unless-stopped
+        volumes:
+          - pgdata:/var/lib/postgresql/data
+        environment:
+          POSTGRES_DB: paperless
+          POSTGRES_USER: paperless
+          POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      webserver:
+        container_name: paperless_webserver
         image: ghcr.io/paperless-ngx/paperless-ngx:latest
         restart: unless-stopped
         depends_on:
+          - db
           - broker
         ports:
           - "8000:8000"
@@ -109,6 +121,7 @@ in
           - .env
         environment:
           PAPERLESS_REDIS: redis://broker:6379
+          PAPERLESS_DBHOST: db
           PAPERLESS_TIME_ZONE: Europe/Berlin
           USERMAP_UID: 501
           USERMAP_GID: 20
@@ -120,6 +133,7 @@ in
 
     volumes:
       redisdata:
+      pgdata:
   '';
 
   # launchd service for auto-start
