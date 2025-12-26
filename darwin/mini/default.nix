@@ -9,7 +9,9 @@ let
 in
 {
   imports = [
-    ./services.nix
+    ./services/immich.nix
+    ./services/jellyfin.nix
+    ./services/paperless.nix
     ./scripts.nix
     ./borgmatic.nix
     ./caddy.nix
