@@ -13,16 +13,23 @@ let
 
     echo "Loading secrets from 1Password..."
     SECRET_KEY=$(${pkgs._1password-cli}/bin/op read "op://Private/paperless-secret/notesPlain" 2>/dev/null)
+    DB_PASSWORD=$(${pkgs._1password-cli}/bin/op read "op://Private/paperless-db/password" 2>/dev/null)
 
     if [ -z "$SECRET_KEY" ]; then
       echo "ERROR: Failed to load Paperless secret key from 1Password" >&2
       echo "Ensure 'paperless-secret' item exists in Private vault with secret in 'notesPlain' field" >&2
       exit 1
     fi
+    if [ -z "$DB_PASSWORD" ]; then
+      echo "ERROR: Failed to load Paperless DB password from 1Password" >&2
+      echo "Ensure 'paperless-db' item exists in Private vault with 'password' field" >&2
+      exit 1
+    fi
 
     # Generate .env file
     cat > "${configDir}/.env" << EOF
     # Auto-generated from 1Password - do not edit manually
+    POSTGRES_PASSWORD=$DB_PASSWORD
     PAPERLESS_SECRET_KEY=$SECRET_KEY
     PAPERLESS_OCR_LANGUAGE=eng+deu
     EOF
@@ -101,7 +108,8 @@ in
         environment:
           POSTGRES_DB: paperless
           POSTGRES_USER: paperless
-          POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        env_file:
+          - .env
 
       webserver:
         container_name: paperless_webserver
