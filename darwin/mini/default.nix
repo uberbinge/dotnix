@@ -9,6 +9,7 @@ let
 in
 {
   imports = [
+    ./services/home-assistant.nix
     ./services/immich.nix
     ./services/jellyfin.nix
     ./services/paperless.nix
