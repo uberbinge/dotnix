@@ -1,6 +1,6 @@
-# darwin/homebrew-common.nix
-# Shared Homebrew configuration for all Darwin machines
-{ pkgs, lib, ... }:
+# darwin/homebrew/common.nix
+# Essential apps for ALL Darwin machines
+{ ... }:
 {
   homebrew = {
     enable = true;
@@ -17,26 +17,20 @@
       "tw93/tap"
     ];
 
-    # Common brews for all machines
     brews = [
-      "mas"  # Mac App Store CLI
-      "mole" # Terminal file manager (tw93/tap)
+      "mas"   # Mac App Store CLI
+      "mole"  # Terminal file manager (tw93/tap)
     ];
 
-    # Common casks for all machines
     casks = [
       # Terminal & Fonts
       "ghostty@tip"
       "font-fira-code-nerd-font"
 
-      # Security
+      # Security (required on all machines)
       "1password"
       "1password-cli"
       "tailscale-app"
     ];
-
-    masApps = {
-      # Common Mac App Store apps (if any)
-    };
   };
 }
