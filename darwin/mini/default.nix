@@ -12,6 +12,7 @@ in
     ./services.nix
     ./scripts.nix
     ./borgmatic.nix
+    ./caddy.nix
   ];
 
   # Pass volume paths to other modules
