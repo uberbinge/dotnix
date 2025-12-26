@@ -117,14 +117,14 @@ in
 
       redis:
         container_name: immich_redis
-        image: redis:6.2-alpine
+        image: docker.io/valkey/valkey:8-bookworm
         healthcheck:
           test: redis-cli ping || exit 1
         restart: unless-stopped
 
       database:
         container_name: immich_postgres
-        image: tensorchord/pgvecto-rs:pg14-v0.2.0
+        image: ghcr.io/immich-app/postgres:14-vectorchord0.4.2-pgvectors0.2.0
         env_file:
           - .env
         environment:

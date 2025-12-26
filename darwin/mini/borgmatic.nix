@@ -12,6 +12,27 @@ let
   # Management scripts
   borgmaticStart = pkgs.writeShellScriptBin "borgmatic-start" ''
     set -euo pipefail
+
+    # Fetch SSH key from 1Password
+    SSH_DIR="${configDir}/ssh"
+    mkdir -p "$SSH_DIR"
+    echo "Fetching SSH key from 1Password..."
+    ${pkgs._1password-cli}/bin/op read "op://Private/Hetzner Borg Backup Keys/ssh-private-key" > "$SSH_DIR/id_rsa" 2>/dev/null
+    if [ -f "$SSH_DIR/id_rsa" ] && [ -s "$SSH_DIR/id_rsa" ]; then
+      chmod 600 "$SSH_DIR/id_rsa"
+      echo "SSH key fetched and secured"
+    else
+      echo "ERROR: Could not fetch SSH key from 1Password" >&2
+      exit 1
+    fi
+
+    # Fetch known_hosts if not present
+    if [ ! -f "$SSH_DIR/known_hosts" ]; then
+      echo "Fetching known_hosts from 1Password..."
+      ${pkgs._1password-cli}/bin/op document get "known-hosts" --vault="Private" --out-file="$SSH_DIR/known_hosts" 2>/dev/null || true
+    fi
+
+    # Load passphrase from 1Password
     echo "Loading passphrase from 1Password..."
     BORG_PASSPHRASE=$(${pkgs._1password-cli}/bin/op read "op://Private/Hetzner Borg Backup Keys/Passphrase" 2>/dev/null)
 
