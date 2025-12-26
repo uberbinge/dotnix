@@ -275,7 +275,7 @@ services:
       - ./config.d:/etc/borgmatic/config.d:ro
       - ./ssh:/ssh:ro
       - ./logs:/var/log/borgmatic
-      - ${mediaVolume}/immich/library/upload:/sources/immich:ro
+      - ${mediaVolume}/immich/library:/sources/immich:ro
       - ${mediaVolume}/jellyfin:/sources/jellyfin:ro
       - ${mediaVolume}/paperless:/sources/paperless:ro
   '';

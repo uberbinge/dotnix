@@ -93,7 +93,7 @@ in
         container_name: immich_server
         image: ghcr.io/immich-app/immich-server:release
         volumes:
-          - ${mediaVolume}/immich/library/upload:/usr/src/app/upload
+          - ${mediaVolume}/immich/library:/usr/src/app/upload
           - /etc/localtime:/etc/localtime:ro
         env_file:
           - .env
