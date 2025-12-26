@@ -40,25 +40,8 @@ let
     echo "BORG_PASSPHRASE=$BORG_PASSPHRASE" > "${configDir}/.env"
     chmod 600 "${configDir}/.env"
 
-    # Copy symlinked files to real files (Docker can't follow nix store symlinks)
-    cd "${configDir}"
-    for f in Dockerfile crontab docker-compose.yml; do
-      if [ -L "$f" ]; then
-        cp -L "$f" "$f.tmp" && rm "$f" && mv "$f.tmp" "$f"
-      fi
-    done
-    # Also copy config.d files
-    for f in config.d/*.yaml; do
-      if [ -L "$f" ]; then
-        cp -L "$f" "$f.tmp" && rm "$f" && mv "$f.tmp" "$f"
-      fi
-    done
-    # Copy ssh/known_hosts if it's a symlink
-    if [ -L "ssh/known_hosts" ]; then
-      cp -L "ssh/known_hosts" "ssh/known_hosts.tmp" && rm "ssh/known_hosts" && mv "ssh/known_hosts.tmp" "ssh/known_hosts"
-    fi
-
     echo "Starting Borgmatic container..."
+    cd "${configDir}"
     ${pkgs.docker-compose}/bin/docker-compose up -d --build
     echo "Borgmatic started"
   '';
