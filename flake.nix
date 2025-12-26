@@ -16,7 +16,10 @@
       url = "github:nix-community/nixvim";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    website-opener.url = "github:uberbinge/alfred-website-helper";
+    website-opener = {
+      url = "github:uberbinge/alfred-website-helper";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs@{ self, nixpkgs, nix-darwin, home-manager, nix-homebrew, nixvim, website-opener }:
@@ -56,10 +59,10 @@
 
           darwinModules = lib.optionalAttrs (system == "aarch64-darwin") {
             nix-homebrew = {
-              enable = lib.mkForce true;
-              enableRosetta = lib.mkForce true;
-              user = lib.mkForce username;
-              autoMigrate = true;  # Migrate existing Homebrew installation
+              enable = true;
+              enableRosetta = true;
+              user = username;
+              autoMigrate = true;
             };
           };
 
@@ -68,49 +71,47 @@
           };
 
         in
-          lib.recursiveUpdate
-            (if isNixOS then
-              nixpkgs.lib.nixosSystem {
-                inherit system specialArgs;
-                modules = [
-                  ./linux/configuration.nix
-                  home-manager.nixosModules.home-manager
-                  mkCommonHomeConfig
-                  {
-                    home-manager.users.${username} = {
-                      imports = [ ./linux/home.nix ];
-                    };
-                  }
-                  nixosModules
-                ];
-              }
-            else if system == "aarch64-darwin" then
-              nix-darwin.lib.darwinSystem {
-                inherit system specialArgs;
-                modules = [
-                  ./darwin/configuration.nix
-                  home-manager.darwinModules.home-manager
-                  mkCommonHomeConfig
-                  {
-                    home-manager.users.${username} = { pkgs, ... }: {
-                      imports = [ ./darwin/home.nix ] ++ extraHomeModules;
-                      home.packages = [ website-opener.packages.${system}.default ];
-                    };
-                  }
-                  nix-homebrew.darwinModules.nix-homebrew
-                  darwinModules
-                ] ++ extraDarwinModules;
-              }
-            else
-              home-manager.lib.homeManagerConfiguration {
-                pkgs = pkgs;
-                extraSpecialArgs = specialArgs;
-                modules = [
-                  mkCommonHomeConfig
-                  ./linux/home.nix
-                ];
-              })
-            { };
+          if isNixOS then
+            nixpkgs.lib.nixosSystem {
+              inherit system specialArgs;
+              modules = [
+                ./linux/configuration.nix
+                home-manager.nixosModules.home-manager
+                mkCommonHomeConfig
+                {
+                  home-manager.users.${username} = {
+                    imports = [ ./linux/home.nix ];
+                  };
+                }
+                nixosModules
+              ];
+            }
+          else if system == "aarch64-darwin" then
+            nix-darwin.lib.darwinSystem {
+              inherit system specialArgs;
+              modules = [
+                ./darwin/configuration.nix
+                home-manager.darwinModules.home-manager
+                mkCommonHomeConfig
+                {
+                  home-manager.users.${username} = { pkgs, ... }: {
+                    imports = [ ./darwin/home.nix ] ++ extraHomeModules;
+                    home.packages = [ website-opener.packages.${system}.default ];
+                  };
+                }
+                nix-homebrew.darwinModules.nix-homebrew
+                darwinModules
+              ] ++ extraDarwinModules;
+            }
+          else
+            home-manager.lib.homeManagerConfiguration {
+              inherit pkgs;
+              extraSpecialArgs = specialArgs;
+              modules = [
+                mkCommonHomeConfig
+                ./linux/home.nix
+              ];
+            };
 
     in
     {
@@ -137,13 +138,7 @@
         };
 
         # Keep 'default' as alias to 'work' for backwards compatibility
-        default = mkConfiguration {
-          system = "aarch64-darwin";
-          username = currentUsername;
-          hostname = "work";
-          extraDarwinModules = [ ./darwin/work/homebrew.nix ];
-          extraHomeModules = [];
-        };
+        default = self.darwinConfigurations.work;
       };
 
       homeConfigurations."${currentUsername}" = mkConfiguration {
@@ -171,5 +166,8 @@
           };
         }
       );
+
+      # Formatter for `nix fmt`
+      formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixpkgs-fmt);
     };
 }
