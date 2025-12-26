@@ -33,6 +33,8 @@ curl -L https://raw.githubusercontent.com/uberbinge/dotnix/main/bootstrap.sh | b
 cd ~/dev/dotnix && ./sync-config-files.sh
 ```
 
+> **Note:** The bootstrap script installs Nix without Determinate Nixd (`--determinate false`) for nix-darwin compatibility.
+
 ### Existing System Updates
 ```bash
 # Apply configuration changes

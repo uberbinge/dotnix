@@ -11,7 +11,7 @@ in
   ];
 
   imports = [
-    ./homebrew.nix
+    ./homebrew-common.nix  # Shared Homebrew apps for all machines
     ./defaults.nix
   ];
 

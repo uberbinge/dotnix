@@ -30,7 +30,8 @@ in
   home.activation.generateSitesFromOP = lib.hm.dag.entryAfter ["writeBoundary"] ''
     export PATH="/opt/homebrew/bin:$PATH"
     sites_file="$HOME/.config/alfred/sites.json"
-    
+    mkdir -p "$HOME/.config/alfred"
+
     if command -v op >/dev/null 2>&1; then
       echo "Generating Alfred sites from 1Password work-urls..."
       
