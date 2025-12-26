@@ -213,7 +213,6 @@ in
 {
   # Immich backup config
   home.file."${configDir}/config.d/immich.yaml" = {
-    force = true;
     text = mkBorgmaticConfig {
     service = "immich";
     subAccount = "sub1";
@@ -230,7 +229,6 @@ in
 
   # Jellyfin backup config
   home.file."${configDir}/config.d/jellyfin.yaml" = {
-    force = true;
     text = mkBorgmaticConfig {
     service = "jellyfin";
     subAccount = "sub2";
@@ -256,7 +254,6 @@ in
 
   # Paperless backup config (longer retention - documents are critical)
   home.file."${configDir}/config.d/paperless.yaml" = {
-    force = true;
     text = mkBorgmaticConfig {
     service = "paperless";
     subAccount = "sub3";
@@ -284,7 +281,6 @@ in
 
   # Borgmatic Docker Compose
   home.file."${configDir}/docker-compose.yml" = {
-    force = true;
     text = ''
 name: borgmatic
 
@@ -312,7 +308,6 @@ services:
 
   # Borgmatic crontab for scheduled backups (Alpine format - no user field)
   home.file."${configDir}/crontab" = {
-    force = true;
     text = ''
 # Borgmatic backup schedule - run sequentially to avoid resource conflicts
 
@@ -329,7 +324,6 @@ services:
 
   # Borgmatic Dockerfile
   home.file."${configDir}/Dockerfile" = {
-    force = true;
     text = ''
 FROM ghcr.io/borgmatic-collective/borgmatic:1.8
 
@@ -368,11 +362,11 @@ CMD ["sh", "-c", "crond -f -l 2"]
 
   # SSH known_hosts for Hetzner Storage Box
   home.file."${configDir}/ssh/known_hosts" = {
-    force = true;
     text = ''
     [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
     [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
     [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
   '';
   };
+
 }
