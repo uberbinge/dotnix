@@ -81,15 +81,19 @@ let
     };
 
   # Common 1Password secret fetching
+  # Returns a shell expression string that will be evaluated at runtime to fetch the secret
+  # Usage: SECRET=${fetch1PasswordSecret { item = "my-item"; }}
   fetch1PasswordSecret = { vault ? "Private", item, field ? "password" }:
     ''$(${pkgs._1password-cli}/bin/op read "op://${vault}/${item}/${field}" 2>/dev/null)'';
 
   # Validate 1Password secret was fetched
-  validate1PasswordSecret = { secretVar, item, field ? "password" }:
+  # Generates shell code to check if a secret variable is non-empty
+  # Usage: ${validate1PasswordSecret { secretVar = "MY_SECRET"; item = "my-item"; }}
+  validate1PasswordSecret = { secretVar, item, field ? "password", vault ? "Private" }:
     ''
       if [ -z "$${secretVar}" ]; then
         echo "ERROR: Failed to load ${item} ${field} from 1Password" >&2
-        echo "Ensure '${item}' item exists in Private vault with '${field}' field" >&2
+        echo "Ensure '${item}' item exists in ${vault} vault with '${field}' field" >&2
         exit 1
       fi
     '';
