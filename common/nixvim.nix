@@ -168,6 +168,26 @@ in
           },
           on_attach = on_attach,
         }
+
+        -- Configure Go Language Server
+        vim.lsp.config.gopls = {
+          cmd = { 'gopls' },
+          filetypes = { 'go', 'gomod', 'gowork', 'gotmpl' },
+          root_markers = { 'go.work', 'go.mod', '.git' },
+          settings = {
+            gopls = {
+              completeUnimported = true,
+              usePlaceholders = true,
+              analyses = {
+                unusedparams = true,
+              },
+              staticcheck = true,
+              gofumpt = true,
+            }
+          },
+          on_attach = on_attach,
+        }
+        vim.lsp.enable('gopls')
       '';
       globals = {
         mapleader = " ";
@@ -195,6 +215,7 @@ in
       extraPackages = with pkgs; [
         nodePackages.typescript-language-server
         lua-language-server
+        gopls
         stylua
         git
         ripgrep
