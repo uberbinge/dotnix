@@ -91,10 +91,12 @@
         pager = "delta";
       };
       git = {
-        # Automatically create local bookmarks for Git branches
-        auto-local-bookmark = true;
         # Push all branches, not just the current one
         push-branch-prefix = "jj-";
+      };
+      # Automatically track bookmarks from origin
+      remotes.origin = {
+        auto-track-bookmarks = "glob:*";
       };
       # Use delta for better diff display (same as git)
       diff = {

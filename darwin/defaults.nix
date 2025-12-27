@@ -44,7 +44,10 @@
       AirDrop = false;
     };
     SoftwareUpdate.AutomaticallyInstallMacOSUpdates = true;
-    screencapture.location = "~/Desktop";
+    screencapture = {
+      location = "~/Desktop";
+      type = "png";
+    };
     NSGlobalDomain = {
       "com.apple.swipescrolldirection" = true;
       "_HIHideMenuBar" = true;

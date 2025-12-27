@@ -28,6 +28,10 @@
 
       # AI tools
       "charmbracelet/tap/crush"  # AI coding agent for terminal
+      "tw93/tap/mole"            # Terminal file manager
+
+      # VCS tools
+      "jjui"                     # TUI for Jujutsu
 
     ];
     casks = [
