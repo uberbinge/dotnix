@@ -18,8 +18,7 @@ This repository contains a comprehensive multi-platform Nix configuration for ma
 ```
 flake.nix                 # Main flake with multi-machine system definitions
 ├── bootstrap.sh          # Multi-machine setup script (supports --machine work/mini)
-├── sync-config-files.sh  # 1Password config file synchronization
-├── POST-SETUP-APPS.md    # Post-installation manual app configuration guide
+├── POST-SETUP-APPS.md    # Post-installation app configuration guide
 ├── common/               # Shared configuration across all platforms
 │   ├── home.nix          # Core Home Manager config with shell setup
 │   ├── nixvim.nix        # Comprehensive Neovim configuration
