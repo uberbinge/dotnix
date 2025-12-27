@@ -19,7 +19,7 @@ let
         ${extraEnvSetup}
         echo "Starting ${serviceName}..."
         cd "${configDir}"
-        ${pkgs.docker-compose}/bin/docker-compose up -d
+        ${pkgs.docker}/bin/docker compose up -d
         echo "${serviceName} started successfully"
       '';
 
@@ -27,18 +27,18 @@ let
         set -euo pipefail
         echo "Stopping ${serviceName}..."
         cd "${configDir}"
-        ${pkgs.docker-compose}/bin/docker-compose down
+        ${pkgs.docker}/bin/docker compose down
         echo "${serviceName} stopped"
       '';
 
       logs = pkgs.writeShellScriptBin "${serviceName}-logs" ''
         cd "${configDir}"
-        ${pkgs.docker-compose}/bin/docker-compose logs -f "''${1:-}"
+        ${pkgs.docker}/bin/docker compose logs -f "''${1:-}"
       '';
 
       status = pkgs.writeShellScriptBin "${serviceName}-status" ''
         cd "${configDir}"
-        ${pkgs.docker-compose}/bin/docker-compose ps
+        ${pkgs.docker}/bin/docker compose ps
       '';
 
       restart = pkgs.writeShellScriptBin "${serviceName}-restart" ''
@@ -50,7 +50,7 @@ let
         set -euo pipefail
         echo "Pulling latest ${serviceName} images..."
         cd "${configDir}"
-        ${pkgs.docker-compose}/bin/docker-compose pull
+        ${pkgs.docker}/bin/docker compose pull
         echo "Restarting with new images..."
         ${restart}/bin/${serviceName}-restart
         echo "${serviceName} updated successfully"
