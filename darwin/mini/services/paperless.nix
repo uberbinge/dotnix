@@ -3,28 +3,18 @@
 { config, pkgs, lib, username, ... }:
 
 let
-  mediaVolume = "/Volumes/4tb";
-  configDir = "${config.home.homeDirectory}/.config/media-server/paperless";
-  composeFile = "${configDir}/docker-compose.yml";
+  miniLib = import ../lib.nix { inherit config pkgs lib; };
+  inherit (miniLib) mediaVolume userId groupId mkDockerComposeScripts mkLaunchdService fetch1PasswordSecret validate1PasswordSecret;
+  
+  configDir = "${miniLib.configDir}/paperless";
 
-  # Script to generate .env from 1Password and start Paperless
-  paperlessStart = pkgs.writeShellScriptBin "paperless-start" ''
-    set -euo pipefail
-
+  # 1Password secret setup for Paperless
+  secretEnvSetup = ''
     echo "Loading secrets from 1Password..."
-    SECRET_KEY=$(${pkgs._1password-cli}/bin/op read "op://Private/paperless-secret/notesPlain" 2>/dev/null)
-    DB_PASSWORD=$(${pkgs._1password-cli}/bin/op read "op://Private/paperless-db/password" 2>/dev/null)
-
-    if [ -z "$SECRET_KEY" ]; then
-      echo "ERROR: Failed to load Paperless secret key from 1Password" >&2
-      echo "Ensure 'paperless-secret' item exists in Private vault with secret in 'notesPlain' field" >&2
-      exit 1
-    fi
-    if [ -z "$DB_PASSWORD" ]; then
-      echo "ERROR: Failed to load Paperless DB password from 1Password" >&2
-      echo "Ensure 'paperless-db' item exists in Private vault with 'password' field" >&2
-      exit 1
-    fi
+    SECRET_KEY=${fetch1PasswordSecret { item = "paperless-secret"; field = "notesPlain"; }}
+    DB_PASSWORD=${fetch1PasswordSecret { item = "paperless-db"; }}
+    ${validate1PasswordSecret { secretVar = "SECRET_KEY"; item = "paperless-secret"; field = "notesPlain"; }}
+    ${validate1PasswordSecret { secretVar = "DB_PASSWORD"; item = "paperless-db"; }}
 
     # Generate .env file
     cat > "${configDir}/.env" << EOF
@@ -33,61 +23,20 @@ let
     PAPERLESS_SECRET_KEY=$SECRET_KEY
     PAPERLESS_OCR_LANGUAGE=eng+deu
     EOF
-
-    echo "Starting Paperless..."
-    cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose up -d
-
-    echo "Paperless started successfully"
   '';
 
-  paperlessStop = pkgs.writeShellScriptBin "paperless-stop" ''
-    set -euo pipefail
-    echo "Stopping Paperless..."
-    cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose down
-    echo "Paperless stopped"
-  '';
-
-  paperlessLogs = pkgs.writeShellScriptBin "paperless-logs" ''
-    cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose logs -f "''${1:-}"
-  '';
-
-  paperlessStatus = pkgs.writeShellScriptBin "paperless-status" ''
-    cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose ps
-  '';
-
-  paperlessRestart = pkgs.writeShellScriptBin "paperless-restart" ''
-    ${paperlessStop}/bin/paperless-stop
-    ${paperlessStart}/bin/paperless-start
-  '';
-
-  paperlessUpdate = pkgs.writeShellScriptBin "paperless-update" ''
-    set -euo pipefail
-    echo "Pulling latest Paperless images..."
-    cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose pull
-    echo "Restarting with new images..."
-    ${paperlessRestart}/bin/paperless-restart
-    echo "Paperless updated successfully"
-  '';
+  scripts = mkDockerComposeScripts {
+    serviceName = "paperless";
+    inherit configDir;
+    extraEnvSetup = secretEnvSetup;
+  };
 in
 {
-  home.packages = [
-    paperlessStart
-    paperlessStop
-    paperlessLogs
-    paperlessStatus
-    paperlessRestart
-    paperlessUpdate
-  ];
+  home.packages = scripts.scripts;
 
   # Create config directory
   home.file."${configDir}/.keep".text = "";
 
-  # Docker Compose configuration
   home.file."${configDir}/docker-compose.yml".text = ''
     name: paperless
 
@@ -131,8 +80,8 @@ in
           PAPERLESS_REDIS: redis://broker:6379
           PAPERLESS_DBHOST: db
           PAPERLESS_TIME_ZONE: Europe/Berlin
-          USERMAP_UID: 501
-          USERMAP_GID: 20
+          USERMAP_UID: ${userId}
+          USERMAP_GID: ${groupId}
         healthcheck:
           test: ["CMD", "curl", "-f", "http://localhost:8000"]
           interval: 30s
@@ -145,23 +94,10 @@ in
   '';
 
   # launchd service for auto-start
-  launchd.agents.paperless = {
-    enable = true;
-    config = {
-      Label = "com.paperless.docker-compose";
-      ProgramArguments = [
-        "${paperlessStart}/bin/paperless-start"
-      ];
-      RunAtLoad = true;
-      KeepAlive = false;
-      WorkingDirectory = configDir;
-      EnvironmentVariables = {
-        HOME = config.home.homeDirectory;
-        PATH = "${pkgs.docker}/bin:${pkgs._1password-cli}/bin:/usr/bin:/bin";
-      };
-      StandardOutPath = "${config.home.homeDirectory}/.local/share/paperless/launchd.log";
-      StandardErrorPath = "${config.home.homeDirectory}/.local/share/paperless/launchd.log";
-    };
+  launchd.agents.paperless = mkLaunchdService {
+    serviceName = "paperless";
+    startScript = scripts.start;
+    inherit configDir;
   };
 
   # Create log directory

@@ -3,22 +3,16 @@
 { config, pkgs, lib, username, ... }:
 
 let
-  mediaVolume = "/Volumes/4tb";
-  configDir = "${config.home.homeDirectory}/.config/media-server/immich";
-  composeFile = "${configDir}/docker-compose.yml";
+  miniLib = import ../lib.nix { inherit config pkgs lib; };
+  inherit (miniLib) mediaVolume userId groupId mkDockerComposeScripts mkLaunchdService fetch1PasswordSecret validate1PasswordSecret;
+  
+  configDir = "${miniLib.configDir}/immich";
 
-  # Script to generate .env from 1Password and start Immich
-  immichStart = pkgs.writeShellScriptBin "immich-start" ''
-    set -euo pipefail
-
+  # 1Password secret setup for Immich
+  secretEnvSetup = ''
     echo "Loading secrets from 1Password..."
-    DB_PASSWORD=$(${pkgs._1password-cli}/bin/op read "op://Private/immich-db/password" 2>/dev/null)
-
-    if [ -z "$DB_PASSWORD" ]; then
-      echo "ERROR: Failed to load Immich DB password from 1Password" >&2
-      echo "Ensure 'immich-db' item exists in Private vault with 'password' field" >&2
-      exit 1
-    fi
+    DB_PASSWORD=${fetch1PasswordSecret { item = "immich-db"; }}
+    ${validate1PasswordSecret { secretVar = "DB_PASSWORD"; item = "immich-db"; }}
 
     # Generate .env file
     cat > "${configDir}/.env" << EOF
@@ -30,56 +24,16 @@ let
     REDIS_HOSTNAME=immich_redis
     IMMICH_MACHINE_LEARNING_URL=http://immich-machine-learning:3003
     EOF
-
-    echo "Starting Immich..."
-    cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose up -d
-
-    echo "Immich started successfully"
   '';
 
-  immichStop = pkgs.writeShellScriptBin "immich-stop" ''
-    set -euo pipefail
-    echo "Stopping Immich..."
-    cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose down
-    echo "Immich stopped"
-  '';
-
-  immichLogs = pkgs.writeShellScriptBin "immich-logs" ''
-    cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose logs -f "''${1:-}"
-  '';
-
-  immichStatus = pkgs.writeShellScriptBin "immich-status" ''
-    cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose ps
-  '';
-
-  immichRestart = pkgs.writeShellScriptBin "immich-restart" ''
-    ${immichStop}/bin/immich-stop
-    ${immichStart}/bin/immich-start
-  '';
-
-  immichUpdate = pkgs.writeShellScriptBin "immich-update" ''
-    set -euo pipefail
-    echo "Pulling latest Immich images..."
-    cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose pull
-    echo "Restarting with new images..."
-    ${immichRestart}/bin/immich-restart
-    echo "Immich updated successfully"
-  '';
+  scripts = mkDockerComposeScripts {
+    serviceName = "immich";
+    inherit configDir;
+    extraEnvSetup = secretEnvSetup;
+  };
 in
 {
-  home.packages = [
-    immichStart
-    immichStop
-    immichLogs
-    immichStatus
-    immichRestart
-    immichUpdate
-  ];
+  home.packages = scripts.scripts;
 
   # Create config directory
   home.file."${configDir}/.keep".text = "";
@@ -146,23 +100,10 @@ in
   '';
 
   # launchd service for auto-start
-  launchd.agents.immich = {
-    enable = true;
-    config = {
-      Label = "com.immich.docker-compose";
-      ProgramArguments = [
-        "${immichStart}/bin/immich-start"
-      ];
-      RunAtLoad = true;
-      KeepAlive = false;  # Don't restart - docker handles container lifecycle
-      WorkingDirectory = configDir;
-      EnvironmentVariables = {
-        HOME = config.home.homeDirectory;
-        PATH = "${pkgs.docker}/bin:${pkgs._1password-cli}/bin:/usr/bin:/bin";
-      };
-      StandardOutPath = "${config.home.homeDirectory}/.local/share/immich/launchd.log";
-      StandardErrorPath = "${config.home.homeDirectory}/.local/share/immich/launchd.log";
-    };
+  launchd.agents.immich = mkLaunchdService {
+    serviceName = "immich";
+    startScript = scripts.start;
+    inherit configDir;
   };
 
   # Create log directory

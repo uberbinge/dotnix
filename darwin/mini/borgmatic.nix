@@ -3,8 +3,10 @@
 { config, pkgs, lib, ... }:
 
 let
-  mediaVolume = "/Volumes/4tb";
-  configDir = "${config.home.homeDirectory}/.config/media-server/borgmatic";
+  miniLib = import ./lib.nix { inherit config pkgs lib; };
+  inherit (miniLib) mediaVolume fetch1PasswordSecret validate1PasswordSecret;
+  
+  configDir = "${miniLib.configDir}/borgmatic";
 
   # Common SSH command for all repos
   sshCommand = "ssh -i /ssh/id_rsa -p 23 -o IdentitiesOnly=yes -o ServerAliveInterval=60 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/ssh/known_hosts";
@@ -17,14 +19,11 @@ let
     SSH_DIR="${configDir}/ssh"
     mkdir -p "$SSH_DIR"
     echo "Fetching SSH key from 1Password..."
-    ${pkgs._1password-cli}/bin/op read "op://Private/Hetzner Borg Backup Keys/ssh-private-key" > "$SSH_DIR/id_rsa" 2>/dev/null
-    if [ -f "$SSH_DIR/id_rsa" ] && [ -s "$SSH_DIR/id_rsa" ]; then
-      chmod 600 "$SSH_DIR/id_rsa"
-      echo "SSH key fetched and secured"
-    else
-      echo "ERROR: Could not fetch SSH key from 1Password" >&2
-      exit 1
-    fi
+    SSH_KEY=${fetch1PasswordSecret { item = "Hetzner Borg Backup Keys"; field = "ssh-private-key"; }}
+    ${validate1PasswordSecret { secretVar = "SSH_KEY"; item = "Hetzner Borg Backup Keys"; field = "ssh-private-key"; }}
+    echo "$SSH_KEY" > "$SSH_DIR/id_rsa"
+    chmod 600 "$SSH_DIR/id_rsa"
+    echo "SSH key fetched and secured"
 
     # Fetch known_hosts if not present
     if [ ! -f "$SSH_DIR/known_hosts" ]; then
@@ -34,37 +33,16 @@ let
 
     # Load passphrase from 1Password
     echo "Loading passphrase from 1Password..."
-    BORG_PASSPHRASE=$(${pkgs._1password-cli}/bin/op read "op://Private/Hetzner Borg Backup Keys/Passphrase" 2>/dev/null)
-
-    if [ -z "$BORG_PASSPHRASE" ]; then
-      echo "ERROR: Could not get passphrase from 1Password" >&2
-      exit 1
-    fi
+    BORG_PASSPHRASE=${fetch1PasswordSecret { item = "Hetzner Borg Backup Keys"; field = "Passphrase"; }}
+    ${validate1PasswordSecret { secretVar = "BORG_PASSPHRASE"; item = "Hetzner Borg Backup Keys"; field = "Passphrase"; }}
 
     # Write .env file for docker-compose (used by container and restarts)
     echo "BORG_PASSPHRASE=$BORG_PASSPHRASE" > "${configDir}/.env"
     chmod 600 "${configDir}/.env"
 
-    # Copy symlinked files to real files (Docker can't follow nix store symlinks)
-    cd "${configDir}"
-    for f in Dockerfile crontab docker-compose.yml; do
-      if [ -L "$f" ]; then
-        cp -L "$f" "$f.tmp" && rm "$f" && mv "$f.tmp" "$f"
-      fi
-    done
-    # Also copy config.d files
-    for f in config.d/*.yaml; do
-      if [ -L "$f" ]; then
-        cp -L "$f" "$f.tmp" && rm "$f" && mv "$f.tmp" "$f"
-      fi
-    done
-    # Copy ssh/known_hosts if it's a symlink
-    if [ -L "ssh/known_hosts" ]; then
-      cp -L "ssh/known_hosts" "ssh/known_hosts.tmp" && rm "ssh/known_hosts" && mv "ssh/known_hosts.tmp" "ssh/known_hosts"
-    fi
-
     echo "Starting Borgmatic container..."
-    ${pkgs.docker-compose}/bin/docker-compose up -d --build
+    cd "${configDir}"
+    ${pkgs.docker}/bin/docker compose up -d --build
     echo "Borgmatic started"
   '';
 
@@ -72,7 +50,7 @@ let
     set -euo pipefail
     echo "Stopping Borgmatic..."
     cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose down
+    ${pkgs.docker}/bin/docker compose down
     # Clean up .env file with passphrase
     rm -f "${configDir}/.env"
     echo "Borgmatic stopped"
@@ -80,21 +58,18 @@ let
 
   borgmaticStatus = pkgs.writeShellScriptBin "borgmatic-status" ''
     cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose ps
+    ${pkgs.docker}/bin/docker compose ps
   '';
 
   borgmaticLogs = pkgs.writeShellScriptBin "borgmatic-logs" ''
     cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose logs -f
+    ${pkgs.docker}/bin/docker compose logs -f
   '';
 
   # Get passphrase from 1Password
   getPassphrase = ''
-    BORG_PASSPHRASE=$(${pkgs._1password-cli}/bin/op read "op://Private/Hetzner Borg Backup Keys/Passphrase" 2>/dev/null)
-    if [ -z "$BORG_PASSPHRASE" ]; then
-      echo "ERROR: Could not get passphrase from 1Password" >&2
-      exit 1
-    fi
+    BORG_PASSPHRASE=${fetch1PasswordSecret { item = "Hetzner Borg Backup Keys"; field = "Passphrase"; }}
+    ${validate1PasswordSecret { secretVar = "BORG_PASSPHRASE"; item = "Hetzner Borg Backup Keys"; field = "Passphrase"; }}
     export BORG_PASSPHRASE
   '';
 
