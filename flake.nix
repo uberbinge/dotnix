@@ -50,6 +50,8 @@
             home-manager.useGlobalPkgs = lib.mkForce true;
             home-manager.useUserPackages = lib.mkForce true;
             home-manager.extraSpecialArgs = specialArgs;
+            # Backup conflicting files during migration to declarative management
+            home-manager.backupFileExtension = "backup";
             home-manager.users.${username}.imports = [
               ./common/home.nix
               nixvim.homeModules.nixvim
