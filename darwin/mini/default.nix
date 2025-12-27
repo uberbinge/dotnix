@@ -3,9 +3,8 @@
 { config, pkgs, lib, ... }:
 
 let
-  # Volume paths for media storage
-  mediaVolume = "/Volumes/4tb";
-  configDir = "${config.home.homeDirectory}/.config/media-server";
+  miniLib = import ./lib.nix { inherit config pkgs lib; };
+  inherit (miniLib) mediaVolume configDir;
 in
 {
   imports = [
