@@ -1,24 +1,4 @@
 { config, lib, pkgs, username, ... }:
-
-let
-  # Helper function to enable a list of attributes
-  # Takes a list of attribute names and returns an attrset with each name enabled
-  enable = attrs: builtins.listToAttrs (map (name: { name = name; value.enable = true; }) attrs);
-
-  # Converts Lua code to Vim script with proper lua command prefix
-  # This allows embedding Lua code in Vim configuration
-  luaToViml = s: let
-    lines = lib.splitString "\n" s;
-    nonEmptyLines = builtins.filter (line: line != "") lines;
-    processed = map (
-      line: if line == builtins.head nonEmptyLines then "lua " + line else "\\ " + line
-    ) nonEmptyLines;
-  in lib.concatStringsSep "\n" processed;
-
-  # Normalizes a list of sources to ensure they all have the proper structure
-  # Converts simple strings to attribute sets with name field
-  mkSources = sources: map (source: if lib.isAttrs source then source else { name = source; }) sources;
-in
 {
   programs.nixvim = {
     config = {

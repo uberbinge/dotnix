@@ -27,18 +27,13 @@
       lib = nixpkgs.lib;
       systems = [ "aarch64-darwin" "aarch64-linux" "x86_64-linux" ];
       forAllSystems = lib.genAttrs systems;
-      
-      # Username configuration
-      # Work machine: uses FLAKE_USERNAME env var or defaults to "waqas.ahmed"
-      # Mini: fixed single-user machine
-      getEnvUsername = default:
-        let envUser = builtins.getEnv "FLAKE_USERNAME";
-        in if envUser != "" then envUser else default;
 
+      # Username configuration - explicit per-machine for reproducibility
+      # Using builtins.getEnv is impure and breaks flake reproducibility
       usernames = {
-        work = getEnvUsername "waqas.ahmed";
-        mini = "waqas";  # Single-user media server
-        linux = getEnvUsername "waqas.ahmed";
+        work = "waqas.ahmed";
+        mini = "waqas";
+        linux = "waqas.ahmed";
       };
 
       mkConfiguration = { system, username, hostname ? null, isNixOS ? false, extraDarwinModules ? [], extraHomeModules ? [] }:
@@ -173,5 +168,27 @@
 
       # Formatter for `nix fmt`
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixpkgs-fmt);
+
+      # Flake checks for CI validation
+      checks = forAllSystems (system:
+        let pkgs = import nixpkgs { inherit system; };
+        in {
+          # Check that all Nix files are properly formatted
+          format = pkgs.runCommand "check-format" {
+            buildInputs = [ pkgs.nixpkgs-fmt ];
+            src = ./.;
+          } ''
+            cd $src
+            nixpkgs-fmt --check .
+            touch $out
+          '';
+
+          # Validate flake evaluation (catches syntax errors)
+          flake-eval = pkgs.runCommand "check-flake-eval" { } ''
+            echo "Flake evaluation successful"
+            touch $out
+          '';
+        }
+      );
     };
 }

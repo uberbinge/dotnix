@@ -1,62 +1,68 @@
-{ pkgs, lib, username, githubUserEmail, githubUserName, specialArgs, ... }:{
+{ pkgs, lib, username, githubUserEmail, githubUserName, specialArgs, ... }:
+{
   imports = [
     ../common/scripts.nix
     ../common/nixvim.nix
     ../common/vcs.nix
   ];
-  home = {
-  stateVersion = "23.11";
-      username = username;
-      sessionVariables = {
-        EDITOR = "nvim";
-        # API Keys from 1Password (family account)
-        # Note: op:// references don't auto-resolve in sessionVariables
-        # Functions that need secrets fetch them directly using 'op read'
-        BRAVE_API_KEY = "op://Private/brave-api-key/notesPlain";
-        TEST_USER = "op://Private/test-user/notesPlain";
-      };
-      packages = with pkgs; [
-        # Common packages for all systems
-        gnumake
-        git
-        ripgrep
 
-        # Additional packages specific to this configuration
-        bat
-        coreutils
-        gh
-        lazygit
-        delta
-        eza
-        fd
-        fzf
-        gnused
-        jq
-        zoxide
-        yt-dlp
-        rustup
-        jsonnet
-        ncspot
-        deno
-        
-        # Create podman -> docker wrapper script
-        (writeShellScriptBin "podman" ''
-          exec docker "$@"
-        '')
-        
-        # Create podman-compose -> docker-compose wrapper script
-        (writeShellScriptBin "podman-compose" ''
-          exec docker-compose "$@"
-        '')
-      ];
-      activation = {
-        rebuildCache = lib.hm.dag.entryAfter ["writeBoundary"] ''
-          $DRY_RUN_CMD $HOME/.local/bin/update-find-cache.sh
-        '';
-      };
+  home = {
+    stateVersion = "23.11";
+    username = username;
+
+    sessionVariables = {
+      EDITOR = "nvim";
+    };
+
+    packages = with pkgs; [
+      # Core utilities (not available as programs.*)
+      gnumake
+      coreutils
+      gnused
+
+      # Development tools
+      lazygit
+      delta
+      fd
+      yt-dlp
+      rustup
+      jsonnet
+      ncspot
+      deno
+
+      # Container wrapper scripts using writeShellApplication
+      (writeShellApplication {
+        name = "podman";
+        runtimeInputs = [ docker ];
+        text = ''exec docker "$@"'';
+      })
+
+      (writeShellApplication {
+        name = "podman-compose";
+        runtimeInputs = [ docker-compose ];
+        text = ''exec docker-compose "$@"'';
+      })
+    ];
+    # Cache for tmux-sessionizer is built lazily on first use - no activation needed
   };
 
   programs.home-manager.enable = true;
+
+  # Use programs.* modules instead of packages where available
+  programs.bat.enable = true;
+  programs.ripgrep.enable = true;
+  programs.gh = {
+    enable = true;
+    settings = {
+      git_protocol = "ssh";
+      editor = "nvim";
+    };
+  };
+  programs.fzf = {
+    enable = true;
+    enableZshIntegration = true;
+  };
+  programs.jq.enable = true;
 
   programs.zoxide = {
     enable = true;
@@ -117,125 +123,103 @@
       strategy = [ "history" ];
       highlight = "fg=244";
     };
-    syntaxHighlighting = {
-      enable = true;
-    };
-    initContent = ''
-      export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
-      eval "$(mise activate zsh)"
-      setopt AUTO_CD
-      # 1Password SSH Agent configuration (platform-specific paths handled in platform configs)
-      # Environment variables are now handled directly by Nix home.sessionVariables
-      _tmux_sessionizer_widget() {
-        tmux-sessionizer
-        zle reset-prompt
-      }
-      zle -N _tmux_sessionizer_widget
-      bindkey '^X' _tmux_sessionizer_widget
-      # Auto-tmux disabled for Ghostty transition - allows Ghostty state restoration
-      # if [[ -z "$TMUX" && -t 0 ]]; then
-      #   if command -v tmux >/dev/null 2>&1; then
-      #     tmux attach-session -t 0 2>/dev/null || tmux new-session
-      #   fi
-      # fi
+    syntaxHighlighting.enable = true;
+    initContent = lib.mkMerge [
+      # Common shell initialization
+      ''
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        eval "$(mise activate zsh)"
+        setopt AUTO_CD
 
-      telegram() {
-        local bot_token=$(op read "op://Private/telegram-bot/notesPlain" 2>/dev/null)
-        local chat_id=$(op read "op://Private/telegram-chat-id/notesPlain" 2>/dev/null)
-        if [[ -z "''$bot_token" || -z "''$chat_id" ]]; then
-          echo "❌ Failed to read Telegram credentials from 1Password"
-          return 1
-        fi
-        curl -s -X POST "https://api.telegram.org/bot''${bot_token}/sendMessage" \
-                        -d "chat_id=''${chat_id}" \
-                        -d "text=''$1"
+        _tmux_sessionizer_widget() {
+          tmux-sessionizer
+          zle reset-prompt
+        }
+        zle -N _tmux_sessionizer_widget
+        bindkey '^X' _tmux_sessionizer_widget
+
+        telegram() {
+          local bot_token
+          local chat_id
+          bot_token=$(op read "op://Private/telegram-bot/notesPlain" 2>/dev/null)
+          chat_id=$(op read "op://Private/telegram-chat-id/notesPlain" 2>/dev/null)
+          if [[ -z "$bot_token" || -z "$chat_id" ]]; then
+            echo "❌ Failed to read Telegram credentials from 1Password"
+            return 1
+          fi
+          curl -s -X POST "https://api.telegram.org/bot''${bot_token}/sendMessage" \
+            -d "chat_id=''${chat_id}" \
+            -d "text=$1"
         }
 
-      toDiscordTest() {
-        local webhook=$(op read "op://Private/discord-test-webhook/notesPlain" 2>/dev/null)
-        if [[ -z "''$webhook" ]]; then
-          echo "❌ Failed to read Discord webhook from 1Password"
-          return 1
-        fi
-        local payload=$(jq -n --arg content "''$1" '{content: $content}')
-        curl -s -H "Content-Type: application/json" \
-             -X POST \
-             -d "''$payload" \
-             "''$webhook"
+        toDiscordTest() {
+          local webhook
+          local payload
+          webhook=$(op read "op://Private/discord-test-webhook/notesPlain" 2>/dev/null)
+          if [[ -z "$webhook" ]]; then
+            echo "❌ Failed to read Discord webhook from 1Password"
+            return 1
+          fi
+          payload=$(jq -n --arg content "$1" '{content: $content}')
+          curl -s -H "Content-Type: application/json" \
+            -X POST \
+            -d "$payload" \
+            "$webhook"
         }
+      ''
+    ];
 
-      # Cross-platform home switch function (auto-detects machine)
-      hs() {
-        cd ~/dev/dotnix
-        export FLAKE_USERNAME=$(whoami)
-        local hostname=$(hostname -s)
-        local flake_config="default"
+    shellAliases = lib.mkMerge [
+      # Common aliases for all platforms
+      {
+        ".." = "cd ..";
+        "..." = "cd ../..";
+        ls = "eza";
+        ll = "eza -al --icons";
+        la = "eza -a";
+        cat = "bat";
+        g = "git";
+        gst = "git status";
+        ga = "git add";
+        gc = "git commit";
+        gco = "git checkout";
+        gcm = "git checkout main";
+        gcam = "git commit -am";
+        gp = "git push";
+        gl = "git pull";
+        c = "clear";
+        zshconfig = "nvim ~/.zshrc";
+        ohmyzsh = "nvim ~/.config/oh-my-zsh";
+        gw = "./gradlew";
+        yi = "yarn install";
+        nm = "nvim";
+        vim = "nvim";
+        v = "nvim";
+        rzsh = "exec zsh";
 
-        # Detect which flake config to use based on hostname
-        if [[ "$hostname" == *"mini"* || "$hostname" == *"Mini"* ]]; then
-          flake_config="mini"
-        fi
+        # Mise task shortcuts
+        b = "mise run build";
+        t = "mise run test";
+        d = "mise run deploy-dev";
+        f = "mise run format";
 
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-          sudo -E darwin-rebuild switch --flake .#"$flake_config"
-        elif command -v nixos-rebuild >/dev/null 2>&1; then
-          sudo -E nixos-rebuild switch --flake .#nixos
-        elif command -v home-manager >/dev/null 2>&1; then
-          home-manager switch --flake .#"$FLAKE_USERNAME"
-        else
-          echo "❌ No supported Nix rebuild command found"
-          return 1
-        fi
+        # Additional shortcuts
+        s = "gst";
+        l = "lazygit";
+
+        # Container aliases
+        podman = "docker";
       }
-    '';
-    shellAliases = {
-      ".." = "cd ..";
-      "..." = "cd ../..";
-      ls = "eza";
-      ll = "eza -al --icons";
-      la = "eza -a";
-      cat = "bat";
-      g = "git";
-      gst = "git status";
-      ga = "git add";
-      gc = "git commit";
-      gco = "git checkout";
-      gcm = "git checkout main";
-      gcam = "git commit -am";
-      gp = "git push";
-      gl = "git pull";
-      c = "clear";
-      zshconfig = "nvim ~/.zshrc";
-      ohmyzsh = "nvim ~/.config/oh-my-zsh";
-      gw = "./gradlew";
-      yi = "yarn install";
-      nm = "nvim";
-      vim = "nvim";
-      v = "nvim";
-      rzsh = "exec zsh";
-      # Platform-specific aliases moved to platform configs
-      
-      # Mise task shortcuts
-      b = "mise run build";
-      t = "mise run test";
-      d = "mise run deploy-dev";
-      f = "mise run format";
-      
-      # Additional shortcuts
-      s = "gst";
-      l = "lazygit";
-      
-      # Container aliases
-      podman = "docker";
-    };
-  };
 
-  programs.gh = {
-    enable = true;
-    settings = {
-      git_protocol = "ssh";
-      editor = "nvim";
-    };
+      # Platform-specific hs alias using lib.mkIf
+      (lib.mkIf pkgs.stdenv.isDarwin {
+        hs = "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#$(hostname -s | tr '[:upper:]' '[:lower:]' | grep -q mini && echo mini || echo work)";
+      })
+
+      (lib.mkIf pkgs.stdenv.isLinux {
+        hs = "cd ~/dev/dotnix && sudo nixos-rebuild switch --flake .#nixos";
+      })
+    ];
   };
 
   programs.eza = {
@@ -251,12 +235,12 @@
   # Tmux configuration with vim-like keybindings and improved usability
   programs.tmux = {
     enable = true;
-    keyMode = "vi";                # Use vi key bindings in copy mode
-    mouse = true;                  # Enable mouse support
-    plugins = with pkgs.tmuxPlugins; [ vim-tmux-navigator ];  # Seamless navigation between tmux and vim
-    escapeTime = 0;                # Remove delay when pressing escape
-    historyLimit = 15000;          # Increase scrollback buffer size
-    newSession = true;             # Create a new session if one doesn't exist
+    keyMode = "vi";
+    mouse = true;
+    plugins = with pkgs.tmuxPlugins; [ vim-tmux-navigator ];
+    escapeTime = 0;
+    historyLimit = 15000;
+    newSession = true;
     extraConfig = ''
       # Change prefix from C-b to C-a (easier to reach)
       set -g prefix C-a

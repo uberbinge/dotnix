@@ -4,55 +4,64 @@
 
 let
   miniLib = import ../lib.nix { inherit config pkgs lib; };
-  inherit (miniLib) mediaVolume userId groupId mkDockerComposeScripts mkLaunchdService;
-  
-  configDir = "${miniLib.configDir}/jellyfin";
+  inherit (miniLib) mediaVolume userId groupId mkDockerComposeScripts mkLaunchdService mkDockerComposeYaml;
+
+  cfg = config.services.mediaServer;
+  serviceConfigDir = "${cfg.configDir}/jellyfin";
 
   scripts = mkDockerComposeScripts {
     serviceName = "jellyfin";
-    inherit configDir;
+    inherit serviceConfigDir;
     # No extra env setup needed - Jellyfin doesn't use 1Password secrets
+  };
+
+  # Docker Compose configuration as structured Nix
+  composeConfig = {
+    name = "jellyfin";
+    services.jellyfin = {
+      container_name = "jellyfin";
+      image = "jellyfin/jellyfin:latest";
+      user = "${userId}:${groupId}";
+      volumes = [
+        "${mediaVolume}/jellyfin/config:/config"
+        "${mediaVolume}/jellyfin/cache:/cache"
+        "${mediaVolume}/jellyfin/jellyfin-library:/media/library:ro"
+        "${mediaVolume}/jellyfin/jellyfin-books:/media/books:ro"
+      ];
+      ports = [
+        "8096:8096"
+        "8920:8920"
+        "7359:7359/udp"
+      ];
+      restart = "unless-stopped";
+      environment = {
+        TZ = "Europe/Berlin";
+        JELLYFIN_PublishedServerUrl = "http://mini.local:8096";
+      };
+      healthcheck = {
+        test = "curl -f http://localhost:8096/health || exit 1";
+        interval = "30s";
+        timeout = "10s";
+        retries = 3;
+      };
+    };
   };
 in
 {
   home.packages = scripts.scripts;
 
   # Create config directory
-  home.file."${configDir}/.keep".text = "";
+  home.file."${serviceConfigDir}/.keep".text = "";
 
-  home.file."${configDir}/docker-compose.yml".text = ''
-    name: jellyfin
-
-    services:
-      jellyfin:
-        container_name: jellyfin
-        image: jellyfin/jellyfin:latest
-        user: "${userId}:${groupId}"
-        volumes:
-          - ${mediaVolume}/jellyfin/config:/config
-          - ${mediaVolume}/jellyfin/cache:/cache
-          - ${mediaVolume}/jellyfin/jellyfin-library:/media/library:ro
-          - ${mediaVolume}/jellyfin/jellyfin-books:/media/books:ro
-        ports:
-          - "8096:8096"
-          - "8920:8920"
-          - "7359:7359/udp"
-        restart: unless-stopped
-        environment:
-          - TZ=Europe/Berlin
-          - JELLYFIN_PublishedServerUrl=http://mini.local:8096
-        healthcheck:
-          test: curl -f http://localhost:8096/health || exit 1
-          interval: 30s
-          timeout: 10s
-          retries: 3
-  '';
+  # Docker Compose configuration - generated from structured Nix
+  home.file."${serviceConfigDir}/docker-compose.yml".source =
+    mkDockerComposeYaml "jellyfin" composeConfig;
 
   # launchd service for auto-start
   launchd.agents.jellyfin = mkLaunchdService {
     serviceName = "jellyfin";
     startScript = scripts.start;
-    inherit configDir;
+    inherit serviceConfigDir;
   };
 
   # Create log directory

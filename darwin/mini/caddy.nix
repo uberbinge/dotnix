@@ -14,20 +14,23 @@ let
   caddyLogDir = "${config.home.homeDirectory}/.local/share/caddy/logs";
 
   # Wrapper script that loads Cloudflare token from 1Password
-  caddyWrapper = pkgs.writeShellScriptBin "caddy-run" ''
-    set -euo pipefail
+  caddyWrapper = pkgs.writeShellApplication {
+    name = "caddy-run";
+    runtimeInputs = [ pkgs._1password-cli caddyWithCloudflare ];
+    text = ''
+      # Load Cloudflare API token from 1Password
+      CLOUDFLARE_API_TOKEN="$(op read "op://Private/cloudflare-api-token/credential" 2>/dev/null || echo "")"
+      export CLOUDFLARE_API_TOKEN
 
-    # Load Cloudflare API token from 1Password
-    export CLOUDFLARE_API_TOKEN="$(${pkgs._1password-cli}/bin/op read "op://Private/cloudflare-api-token/credential" 2>/dev/null || echo "")"
+      if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+        echo "ERROR: Failed to load Cloudflare API token from 1Password" >&2
+        echo "Make sure 1Password CLI is authenticated and the item exists" >&2
+        exit 1
+      fi
 
-    if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-      echo "ERROR: Failed to load Cloudflare API token from 1Password" >&2
-      echo "Make sure 1Password CLI is authenticated and the item exists" >&2
-      exit 1
-    fi
-
-    exec ${caddyWithCloudflare}/bin/caddy "$@"
-  '';
+      exec caddy "$@"
+    '';
+  };
 in
 {
   home.packages = [
@@ -36,9 +39,11 @@ in
   ];
 
   # Create required directories
-  home.file."${caddyConfigDir}/.keep".text = "";
-  home.file."${caddyDataDir}/.keep".text = "";
-  home.file."${caddyLogDir}/.keep".text = "";
+  home.file = {
+    "${caddyConfigDir}/.keep".text = "";
+    "${caddyDataDir}/.keep".text = "";
+    "${caddyLogDir}/.keep".text = "";
+  };
 
   # Caddyfile configuration
   home.file."${caddyConfigDir}/Caddyfile".text = ''
