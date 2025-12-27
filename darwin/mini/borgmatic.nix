@@ -316,17 +316,18 @@ in
     mkDockerComposeYaml "borgmatic" composeConfig;
 
   # Borgmatic crontab for scheduled backups (Alpine format - no user field)
+  # Source /etc/borgmatic-env to get BORG_PASSPHRASE (cron doesn't inherit Docker env)
   home.file."${serviceConfigDir}/crontab".text = ''
     # Borgmatic backup schedule - run sequentially to avoid resource conflicts
 
     # Immich backup (2TB) - 2 AM daily
-    0 2 * * * borgmatic --config /etc/borgmatic/config.d/immich.yaml --verbosity 1 --stats >> /var/log/borgmatic/immich-cron.log 2>&1
+    0 2 * * * . /etc/borgmatic-env; borgmatic --config /etc/borgmatic/config.d/immich.yaml --verbosity 1 --stats >> /var/log/borgmatic/immich-cron.log 2>&1
 
     # Jellyfin backup - 4 AM daily
-    0 4 * * * borgmatic --config /etc/borgmatic/config.d/jellyfin.yaml --verbosity 1 --stats >> /var/log/borgmatic/jellyfin-cron.log 2>&1
+    0 4 * * * . /etc/borgmatic-env; borgmatic --config /etc/borgmatic/config.d/jellyfin.yaml --verbosity 1 --stats >> /var/log/borgmatic/jellyfin-cron.log 2>&1
 
     # Paperless backup - 5 AM daily
-    0 5 * * * borgmatic --config /etc/borgmatic/config.d/paperless.yaml --verbosity 1 --stats >> /var/log/borgmatic/paperless-cron.log 2>&1
+    0 5 * * * . /etc/borgmatic-env; borgmatic --config /etc/borgmatic/config.d/paperless.yaml --verbosity 1 --stats >> /var/log/borgmatic/paperless-cron.log 2>&1
   '';
 
   # Borgmatic Dockerfile
@@ -337,9 +338,12 @@ in
     COPY crontab /etc/crontabs/root
     RUN chmod 0600 /etc/crontabs/root
 
-    # Create log directory and start crond (Alpine's cron daemon)
+    # Create log directory
     RUN mkdir -p /var/log/borgmatic
-    CMD ["sh", "-c", "crond -f -l 2"]
+
+    # Start script: dump BORG env vars for cron, then start crond
+    # Cron doesn't inherit Docker env vars, so we save them to a file
+    CMD ["sh", "-c", "env | grep -E '^BORG_' > /etc/borgmatic-env && chmod 600 /etc/borgmatic-env && crond -f -l 2"]
   '';
 
   # launchd service for auto-start
