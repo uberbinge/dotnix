@@ -9,6 +9,7 @@
       magnification = false;
       mru-spaces = false;
       show-recents = false;
+      showhidden = true;  # Dim hidden apps in Dock
       tilesize = 32;
       # Hot corners (only corner actions, modifiers not supported by nix-darwin)
       wvous-tl-corner = 1;   # Top-left: Disabled
@@ -151,8 +152,11 @@
         };
       };
       "com.apple.dock" = {
-        # Enable App Exposé gesture (swipe down with four fingers)  
+        # Enable App Exposé gesture (swipe down with four fingers)
         showAppExposeGestureEnabled = true;
+        # Enable pinch gestures for Desktop and Launchpad
+        showDesktopGestureEnabled = true;
+        showLaunchpadGestureEnabled = true;
       };
     };
   };
