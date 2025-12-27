@@ -244,61 +244,92 @@ let
   };
 
   yamlFormat = pkgs.formats.yaml { };
+
+  # Generate files to Nix store (will be copied by activation script, not symlinked)
+  immichConfig = yamlFormat.generate "immich-borgmatic.yaml" (mkBorgmaticConfig {
+    service = "immich";
+    subAccount = "sub1";
+    sourceDirs = [ "/sources/immich" ];
+    excludePatterns = [
+      "**/thumbs/**"
+      "**/encoded-video/**"
+      "**/backups/**"
+      "**/.DS_Store"
+      "**/.Trash/**"
+    ];
+  });
+
+  jellyfinConfig = yamlFormat.generate "jellyfin-borgmatic.yaml" (mkBorgmaticConfig {
+    service = "jellyfin";
+    subAccount = "sub2";
+    sourceDirs = [
+      "/sources/jellyfin/config"
+      "/sources/jellyfin/jellyfin-books"
+      "/sources/jellyfin/jellyfin-library"
+    ];
+    excludePatterns = [
+      "**/.DS_Store"
+      "**/.Trash/**"
+      "**/cache/**"
+      "**/Cache/**"
+      "**/transcodes/**"
+      "**/log/**"
+      "**/logs/**"
+      "**/temp/**"
+      "**/tmp/**"
+    ];
+    checkArchives = true;
+  });
+
+  paperlessConfig = yamlFormat.generate "paperless-borgmatic.yaml" (mkBorgmaticConfig {
+    service = "paperless";
+    subAccount = "sub3";
+    sourceDirs = [ "/sources/paperless" ];
+    excludePatterns = [
+      "**/.DS_Store"
+      "**/.Trash/**"
+    ];
+    checkArchives = true;
+    keepMonthly = 12;
+  });
+
+  dockerComposeFile = mkDockerComposeYaml "borgmatic" composeConfig;
+
+  # Helper to export BORG env vars from container's init process (cron doesn't inherit Docker env)
+  exportBorgEnv = ''eval $(cat /proc/1/environ | tr "\\0" "\\n" | grep "^BORG_" | sed "s/^/export /")'';
+
+  crontabContent = ''
+    # Borgmatic backup schedule - run sequentially to avoid resource conflicts
+
+    # Immich backup (2TB) - 2 AM daily
+    0 2 * * * ${exportBorgEnv}; borgmatic --config /etc/borgmatic/config.d/immich.yaml --verbosity 1 --stats >> /var/log/borgmatic/immich-cron.log 2>&1
+
+    # Jellyfin backup - 4 AM daily
+    0 4 * * * ${exportBorgEnv}; borgmatic --config /etc/borgmatic/config.d/jellyfin.yaml --verbosity 1 --stats >> /var/log/borgmatic/jellyfin-cron.log 2>&1
+
+    # Paperless backup - 5 AM daily
+    0 5 * * * ${exportBorgEnv}; borgmatic --config /etc/borgmatic/config.d/paperless.yaml --verbosity 1 --stats >> /var/log/borgmatic/paperless-cron.log 2>&1
+  '';
+
+  dockerfileContent = ''
+    FROM ghcr.io/borgmatic-collective/borgmatic:1.8
+
+    # Copy crontab file (Alpine uses /etc/crontabs/root)
+    COPY crontab /etc/crontabs/root
+    RUN chmod 0600 /etc/crontabs/root
+
+    # Create log directory
+    RUN mkdir -p /var/log/borgmatic
+  '';
+
+  knownHostsContent = ''
+    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
+    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
+    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
+  '';
+
 in
 {
-  # Immich backup config
-  home.file."${serviceConfigDir}/config.d/immich.yaml".source =
-    yamlFormat.generate "immich-borgmatic.yaml" (mkBorgmaticConfig {
-      service = "immich";
-      subAccount = "sub1";
-      sourceDirs = [ "/sources/immich" ];
-      excludePatterns = [
-        "**/thumbs/**"
-        "**/encoded-video/**"
-        "**/backups/**"
-        "**/.DS_Store"
-        "**/.Trash/**"
-      ];
-    });
-
-  # Jellyfin backup config
-  home.file."${serviceConfigDir}/config.d/jellyfin.yaml".source =
-    yamlFormat.generate "jellyfin-borgmatic.yaml" (mkBorgmaticConfig {
-      service = "jellyfin";
-      subAccount = "sub2";
-      sourceDirs = [
-        "/sources/jellyfin/config"
-        "/sources/jellyfin/jellyfin-books"
-        "/sources/jellyfin/jellyfin-library"
-      ];
-      excludePatterns = [
-        "**/.DS_Store"
-        "**/.Trash/**"
-        "**/cache/**"
-        "**/Cache/**"
-        "**/transcodes/**"
-        "**/log/**"
-        "**/logs/**"
-        "**/temp/**"
-        "**/tmp/**"
-      ];
-      checkArchives = true;
-    });
-
-  # Paperless backup config (longer retention - documents are critical)
-  home.file."${serviceConfigDir}/config.d/paperless.yaml".source =
-    yamlFormat.generate "paperless-borgmatic.yaml" (mkBorgmaticConfig {
-      service = "paperless";
-      subAccount = "sub3";
-      sourceDirs = [ "/sources/paperless" ];
-      excludePatterns = [
-        "**/.DS_Store"
-        "**/.Trash/**"
-      ];
-      checkArchives = true;
-      keepMonthly = 12;  # Keep 1 year of monthly backups for documents
-    });
-
   # Management scripts
   home.packages = [
     borgmaticStart
@@ -310,41 +341,6 @@ in
     borgmaticCheck
     borgmaticInfo
   ];
-
-  # Borgmatic Docker Compose - generated from structured Nix
-  home.file."${serviceConfigDir}/docker-compose.yml".source =
-    mkDockerComposeYaml "borgmatic" composeConfig;
-
-  # Borgmatic crontab for scheduled backups (Alpine format - no user field)
-  # Source /etc/borgmatic-env to get BORG_PASSPHRASE (cron doesn't inherit Docker env)
-  home.file."${serviceConfigDir}/crontab".text = ''
-    # Borgmatic backup schedule - run sequentially to avoid resource conflicts
-
-    # Immich backup (2TB) - 2 AM daily
-    0 2 * * * . /etc/borgmatic-env; borgmatic --config /etc/borgmatic/config.d/immich.yaml --verbosity 1 --stats >> /var/log/borgmatic/immich-cron.log 2>&1
-
-    # Jellyfin backup - 4 AM daily
-    0 4 * * * . /etc/borgmatic-env; borgmatic --config /etc/borgmatic/config.d/jellyfin.yaml --verbosity 1 --stats >> /var/log/borgmatic/jellyfin-cron.log 2>&1
-
-    # Paperless backup - 5 AM daily
-    0 5 * * * . /etc/borgmatic-env; borgmatic --config /etc/borgmatic/config.d/paperless.yaml --verbosity 1 --stats >> /var/log/borgmatic/paperless-cron.log 2>&1
-  '';
-
-  # Borgmatic Dockerfile
-  home.file."${serviceConfigDir}/Dockerfile".text = ''
-    FROM ghcr.io/borgmatic-collective/borgmatic:1.8
-
-    # Copy crontab file (Alpine uses /etc/crontabs/root)
-    COPY crontab /etc/crontabs/root
-    RUN chmod 0600 /etc/crontabs/root
-
-    # Create log directory
-    RUN mkdir -p /var/log/borgmatic
-
-    # Start script: dump BORG env vars for cron, then start crond
-    # Cron doesn't inherit Docker env vars, so we save them to a file
-    CMD ["sh", "-c", "env | grep -E '^BORG_' > /etc/borgmatic-env && chmod 600 /etc/borgmatic-env && crond -f -l 2"]
-  '';
 
   # launchd service for auto-start
   launchd.agents.borgmatic = {
@@ -364,26 +360,36 @@ in
     };
   };
 
-  # Create log directory
+  # Create log directory (this one can stay as home.file - not Docker related)
   home.file."${config.home.homeDirectory}/.local/share/borgmatic/.keep".text = "";
 
-  # SSH known_hosts for Hetzner Storage Box
-  home.file."${serviceConfigDir}/ssh/known_hosts".text = ''
-    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
-    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
-    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
-  '';
+  # Write Docker-related files directly via activation script (no symlinks)
+  # This avoids the symlink-to-real-file dance that conflicts with Home Manager
+  home.activation.borgmaticWriteFiles = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    echo "Writing borgmatic Docker files..."
+    $DRY_RUN_CMD mkdir -p "${serviceConfigDir}/config.d" "${serviceConfigDir}/ssh" "${serviceConfigDir}/logs"
 
-  # Convert symlinks to real files for Docker compatibility
-  # Docker Desktop can't follow symlinks to Nix store paths
-  home.activation.borgmaticFixSymlinks = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-    echo "Converting borgmatic symlinks to real files for Docker..."
-    cd "${serviceConfigDir}"
-    for f in Dockerfile crontab docker-compose.yml config.d/*.yaml ssh/known_hosts; do
-      if [ -L "$f" ]; then
-        $DRY_RUN_CMD cp -L "$f" "$f.tmp"
-        $DRY_RUN_CMD mv "$f.tmp" "$f"
-      fi
-    done
+    # Copy generated YAML configs
+    $DRY_RUN_CMD cp -f "${immichConfig}" "${serviceConfigDir}/config.d/immich.yaml"
+    $DRY_RUN_CMD cp -f "${jellyfinConfig}" "${serviceConfigDir}/config.d/jellyfin.yaml"
+    $DRY_RUN_CMD cp -f "${paperlessConfig}" "${serviceConfigDir}/config.d/paperless.yaml"
+
+    # Copy docker-compose.yml
+    $DRY_RUN_CMD cp -f "${dockerComposeFile}" "${serviceConfigDir}/docker-compose.yml"
+
+    # Write text files
+    $DRY_RUN_CMD cat > "${serviceConfigDir}/crontab" << 'CRONTAB'
+    ${crontabContent}
+    CRONTAB
+
+    $DRY_RUN_CMD cat > "${serviceConfigDir}/Dockerfile" << 'DOCKERFILE'
+    ${dockerfileContent}
+    DOCKERFILE
+
+    $DRY_RUN_CMD cat > "${serviceConfigDir}/ssh/known_hosts" << 'KNOWNHOSTS'
+    ${knownHostsContent}
+    KNOWNHOSTS
+
+    echo "Borgmatic Docker files written"
   '';
 }
