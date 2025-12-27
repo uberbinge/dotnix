@@ -52,6 +52,7 @@ let
       ${secretSetup}
       echo "Starting Borgmatic container..."
       cd "${serviceConfigDir}"
+
       docker compose up -d --build
       echo "Borgmatic started"
     '';
@@ -367,5 +368,18 @@ in
     [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
     [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
     [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
+  '';
+
+  # Convert symlinks to real files for Docker compatibility
+  # Docker Desktop can't follow symlinks to Nix store paths
+  home.activation.borgmaticFixSymlinks = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    echo "Converting borgmatic symlinks to real files for Docker..."
+    cd "${serviceConfigDir}"
+    for f in Dockerfile crontab docker-compose.yml config.d/*.yaml ssh/known_hosts; do
+      if [ -L "$f" ]; then
+        $DRY_RUN_CMD cp -L "$f" "$f.tmp"
+        $DRY_RUN_CMD mv "$f.tmp" "$f"
+      fi
+    done
   '';
 }
