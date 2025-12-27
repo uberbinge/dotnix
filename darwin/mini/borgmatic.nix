@@ -42,7 +42,7 @@ let
 
     echo "Starting Borgmatic container..."
     cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose up -d --build
+    ${pkgs.docker}/bin/docker compose up -d --build
     echo "Borgmatic started"
   '';
 
@@ -50,7 +50,7 @@ let
     set -euo pipefail
     echo "Stopping Borgmatic..."
     cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose down
+    ${pkgs.docker}/bin/docker compose down
     # Clean up .env file with passphrase
     rm -f "${configDir}/.env"
     echo "Borgmatic stopped"
@@ -58,12 +58,12 @@ let
 
   borgmaticStatus = pkgs.writeShellScriptBin "borgmatic-status" ''
     cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose ps
+    ${pkgs.docker}/bin/docker compose ps
   '';
 
   borgmaticLogs = pkgs.writeShellScriptBin "borgmatic-logs" ''
     cd "${configDir}"
-    ${pkgs.docker-compose}/bin/docker-compose logs -f
+    ${pkgs.docker}/bin/docker compose logs -f
   '';
 
   # Get passphrase from 1Password

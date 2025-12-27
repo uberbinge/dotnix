@@ -69,24 +69,9 @@ That checks:
 
 **Implementation**: Add to `scripts.nix`
 
-#### 3. Consider Using `docker compose` Instead of `docker-compose`
-
-The `docker-compose` command is deprecated in favor of `docker compose` (with space, as a Docker plugin).
-
-**Update in lib.nix**:
-```nix
-# Change from:
-${pkgs.docker-compose}/bin/docker-compose
-
-# To:
-${pkgs.docker}/bin/docker compose
-```
-
-**Why**: Future-proof, better maintained, already used in parts of scripts.nix
-
 ### Medium Priority
 
-#### 4. Extract Common Docker Compose Patterns
+#### 3. Extract Common Docker Compose Patterns
 
 The services share common patterns:
 - Health checks
@@ -107,7 +92,7 @@ mkVolumeMount = { hostPath, containerPath, readonly ? false }:
   "${hostPath}:${containerPath}${if readonly then ":ro" else ""}";
 ```
 
-#### 5. Add Monitoring/Alerting Hooks
+#### 4. Add Monitoring/Alerting Hooks
 
 Consider adding:
 - Backup success/failure notifications (e.g., via ntfy.sh or Pushover)
@@ -120,7 +105,7 @@ on_error:
   - echo "Backup failed" | ntfy pub my-topic
 ```
 
-#### 6. Add Update Notification System
+#### 5. Add Update Notification System
 
 Create a script that checks for updates to all services:
 ```bash
@@ -129,7 +114,7 @@ media-server check-updates
 
 Shows which Docker images have newer versions available.
 
-#### 7. Centralize Timezone Configuration
+#### 6. Centralize Timezone Configuration
 
 Currently hardcoded in each service. Consider:
 ```nix
@@ -143,7 +128,7 @@ environment:
 
 ### Low Priority
 
-#### 8. Consider NixOS Modules Pattern
+#### 7. Consider NixOS Modules Pattern
 
 If you find yourself with more machines, consider converting to proper NixOS modules with options:
 
@@ -161,7 +146,7 @@ If you find yourself with more machines, consider converting to proper NixOS mod
 
 **When**: Only if you have 3+ machines with similar needs
 
-#### 9. Add Disaster Recovery Documentation
+#### 8. Add Disaster Recovery Documentation
 
 Document the complete recovery process:
 1. Fresh Mac Mini setup
@@ -171,7 +156,7 @@ Document the complete recovery process:
 
 **Where**: Add to `POST-SETUP-APPS.md` or separate `DISASTER-RECOVERY.md`
 
-#### 10. Add Integration Tests
+#### 9. Add Integration Tests
 
 Create a `darwin/mini/tests.nix` that verifies:
 - All scripts compile
@@ -248,13 +233,14 @@ The refactoring achieved the main goals:
 - ✅ Created consistent patterns across services
 - ✅ Made it easier to add new services
 - ✅ Improved maintainability
+- ✅ Switched to modern `docker compose` command
 
 Most recommendations above are optional enhancements. The current implementation is clean, well-structured, and production-ready for a home media server.
 
 **Highest value next steps**:
 1. Add health check command
-2. Consider switching to `docker compose` (no hyphen)
-3. Test if borgmatic symlink copying is still needed
-4. Add backup success/failure notifications
+2. Add backup success/failure notifications
+3. Extract common Docker Compose patterns
+4. Centralize timezone configuration
 
 Everything else can be done as-needed when requirements change.
