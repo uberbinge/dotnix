@@ -2,33 +2,40 @@
 set -e
 
 # ==============================================================================
-# 🚀 Consolidated Idempotent MacBook Bootstrap Script
+# 🚀 Multi-Machine Idempotent Mac Bootstrap Script
 # ==============================================================================
 # This script can be run multiple times safely without negative effects.
 # It handles fresh installs and updates existing installations.
 #
+# SUPPORTED MACHINES:
+#   work  - Work MacBook (development machine)
+#   mini  - Mac Mini (media server with Jellyfin, Immich, Paperless, etc.)
+#
 # USAGE:
-#   # New Mac:
+#   # New Mac (auto-detects machine type based on username):
 #   curl -L https://raw.githubusercontent.com/uberbinge/dotnix/main/bootstrap.sh | bash
-#   
-#   # Or locally:
-#   ./bootstrap.sh
 #
-#   # With options:
-#   ./bootstrap.sh --skip-xcode    # Skip Xcode tools check
-#   ./bootstrap.sh --force         # Force reinstall components
+#   # Specify machine type explicitly:
+#   ./bootstrap.sh --machine work
+#   ./bootstrap.sh --machine mini
+#
+#   # Other options:
 #   ./bootstrap.sh --dry-run       # Show what would be done
+#   ./bootstrap.sh --force         # Force reinstall components
 #
-#   # Note: For config files, run ./sync-config-files.sh after bootstrap
+#   # Note: For work machine config files, run ./sync-config-files.sh after bootstrap
 # ==============================================================================
 
 # Script configuration
-SCRIPT_VERSION="2.2.0"
+SCRIPT_VERSION="3.0.0"
 CURRENT_USER=$(whoami)  # Automatically detect current user
 WORK_DIR="$HOME/dev"
 CONFIG_DIR="$WORK_DIR/dotnix"
 REPO_URL="https://github.com/uberbinge/dotnix.git"
 REPO_SSH="git@github.com:uberbinge/dotnix.git"
+
+# Machine type (work or mini) - auto-detected or specified via flag
+MACHINE_TYPE=""
 
 # Colors and formatting
 RED='\033[0;31m'
@@ -84,6 +91,14 @@ DRY_RUN=false
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --machine)
+            MACHINE_TYPE="$2"
+            if [[ "$MACHINE_TYPE" != "work" && "$MACHINE_TYPE" != "mini" ]]; then
+                echo "Error: --machine must be 'work' or 'mini'"
+                exit 1
+            fi
+            shift 2
+            ;;
         --skip-xcode)
             SKIP_XCODE=true
             shift
@@ -99,6 +114,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
+            echo "  --machine TYPE  Machine type: 'work' or 'mini' (auto-detected if not specified)"
             echo "  --skip-xcode    Skip Xcode Command Line Tools installation"
             echo "  --force         Force reinstall components"
             echo "  --dry-run       Show what would be done without executing"
@@ -178,6 +194,47 @@ is_installed() {
 }
 
 # ==============================================================================
+# MACHINE DETECTION
+# ==============================================================================
+
+detect_machine_type() {
+    # If already specified via flag, use that
+    if [ -n "$MACHINE_TYPE" ]; then
+        return 0
+    fi
+
+    # Try to auto-detect based on username
+    if [ "$CURRENT_USER" = "waqas" ]; then
+        MACHINE_TYPE="mini"
+        log "Auto-detected machine type: mini (based on username)"
+        return 0
+    elif [ "$CURRENT_USER" = "waqas.ahmed" ]; then
+        MACHINE_TYPE="work"
+        log "Auto-detected machine type: work (based on username)"
+        return 0
+    fi
+
+    # Interactive selection if can't auto-detect
+    echo ""
+    echo -e "${BOLD}Select machine type:${NC}"
+    echo "  1) work  - Work MacBook (development machine)"
+    echo "  2) mini  - Mac Mini (media server with services)"
+    echo ""
+    read -p "Enter choice (1 or 2): " choice
+
+    case $choice in
+        1) MACHINE_TYPE="work" ;;
+        2) MACHINE_TYPE="mini" ;;
+        *)
+            error "Invalid choice"
+            exit 1
+            ;;
+    esac
+
+    success "Selected machine type: $MACHINE_TYPE"
+}
+
+# ==============================================================================
 # MAIN BOOTSTRAP PHASES
 # ==============================================================================
 
@@ -185,28 +242,34 @@ show_header() {
     clear
     echo -e "${BOLD}${BLUE}"
     echo "╔══════════════════════════════════════════════════════════════════════════════╗"
-    echo "║                    🚀 MacBook Bootstrap Script v$SCRIPT_VERSION                    ║"
+    echo "║                    🚀 Mac Bootstrap Script v$SCRIPT_VERSION                        ║"
     echo "║                                                                              ║"
     echo "║  🧑‍💻 User: $CURRENT_USER"
     printf "║%*s║\n" $((73 - ${#CURRENT_USER})) ""
-    echo "║  This script will set up your complete development environment:             ║"
-    echo "║  • Xcode Command Line Tools                                                 ║"
-    echo "║  • SSH via Tailscale + 1Password SSH Agent                                  ║"
-    echo "║  • Nix Package Manager + Darwin                                             ║"
-    echo "║  • Complete System Configuration                                            ║"
-    echo "║  • 50+ Applications via Homebrew                                            ║"
-    echo "║  • Shell History (Atuin) Setup                                              ║"
+    echo "║  Supported machines:                                                        ║"
+    echo "║  • work - Work MacBook (development environment)                            ║"
+    echo "║  • mini - Mac Mini (media server + services)                                ║"
+    echo "║                                                                              ║"
+    echo "║  This script will set up:                                                   ║"
+    echo "║  • Lix (Nix fork) + nix-darwin                                              ║"
+    echo "║  • Applications via Homebrew                                                ║"
+    echo "║  • System preferences and shell environment                                 ║"
+    echo "║  • 1Password SSH Agent integration                                          ║"
     echo "╚══════════════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
-    
+
     if [ "$DRY_RUN" = true ]; then
         warning "DRY RUN MODE - No changes will be made"
     fi
-    
+
     if [ "$FORCE_INSTALL" = true ]; then
         warning "FORCE MODE - Will reinstall existing components"
     fi
-    
+
+    if [ -n "$MACHINE_TYPE" ]; then
+        log "Machine type: $MACHINE_TYPE (from --machine flag)"
+    fi
+
     echo ""
 }
 
@@ -239,48 +302,47 @@ check_prerequisites() {
 
 
 install_nix() {
-    step "❄️  Nix Package Manager"
-    
+    step "❄️  Lix (Nix Fork)"
+
     if is_installed "nix" && [ "$FORCE_INSTALL" != true ]; then
-        success "Nix already installed"
+        success "Nix/Lix already installed"
         # Source Nix environment
         if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
             . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
         fi
         return 0
     fi
-    
+
     if [ "$FORCE_INSTALL" = true ]; then
-        warning "Force reinstalling Nix..."
+        warning "Force reinstalling Lix..."
     fi
-    
-    log "Installing Nix (without Determinate Nixd for nix-darwin compatibility)..."
+
+    log "Installing Lix (community Nix fork with better UX)..."
     if [ "$DRY_RUN" != true ]; then
-        # Use --determinate false to skip Determinate Nixd daemon (conflicts with nix-darwin)
-        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --determinate false
-        
+        curl -sSf -L https://install.lix.systems/lix | sh -s -- install
+
         # Source Nix environment for current session
         if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
             . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-            success "Nix environment loaded"
+            success "Lix environment loaded"
         fi
     fi
-    
-    # Enable flakes (idempotent)
+
+    # Flakes are enabled by default in Lix, but ensure config exists
     execute mkdir -p ~/.config/nix
     if ! grep -q "experimental-features" ~/.config/nix/nix.conf 2>/dev/null; then
         if [ "$DRY_RUN" != true ]; then
             echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
         fi
-        success "Nix flakes enabled"
+        success "Flakes configuration added"
     else
-        success "Nix flakes already enabled"
+        success "Flakes already configured"
     fi
-    
+
     if is_installed "nix"; then
-        success "Nix installation completed"
+        success "Lix installation completed"
     else
-        error "Nix installation failed"
+        error "Lix installation failed"
         exit 1
     fi
 }
@@ -340,33 +402,36 @@ clone_configuration() {
 
 install_nix_darwin() {
     step "🍎 Nix-Darwin System Configuration"
-    
+
     if ! [ -d "$CONFIG_DIR" ]; then
         error "Configuration directory not found at $CONFIG_DIR"
         exit 1
     fi
-    
+
     cd "$CONFIG_DIR"
-    
+
+    log "Machine type: $MACHINE_TYPE"
+    log "Flake target: .#$MACHINE_TYPE"
+
     # Check if nix-darwin is already installed
     if is_installed "nix-darwin" && [ "$FORCE_INSTALL" != true ]; then
         log "Nix-Darwin already installed, running system update..."
         log "Using current user: $CURRENT_USER"
         if [ "$DRY_RUN" != true ]; then
-            FLAKE_USERNAME="$CURRENT_USER" sudo -E darwin-rebuild switch --flake .#default
+            sudo darwin-rebuild switch --flake ".#$MACHINE_TYPE"
         fi
         success "System configuration updated"
         return 0
     fi
-    
+
     log "Installing Nix-Darwin system configuration..."
     log "Using current user: $CURRENT_USER"
     log "This may take 10-15 minutes on first run..."
-    
+
     if [ "$DRY_RUN" != true ]; then
-        FLAKE_USERNAME="$CURRENT_USER" sudo -E nix run nix-darwin -- switch --flake .#default
+        sudo nix run nix-darwin -- switch --flake ".#$MACHINE_TYPE"
     fi
-    
+
     success "Nix-Darwin system configuration completed"
 }
 
@@ -384,44 +449,69 @@ setup_environment() {
 
 show_completion() {
     step "🎉 Bootstrap Complete!"
-    
+
     echo -e "${GREEN}"
     echo "╔══════════════════════════════════════════════════════════════════════════════╗"
     echo "║                          ✅ Setup Completed Successfully!                    ║"
     echo "╚══════════════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
-    
+
+    echo -e "${BOLD}Machine type: $MACHINE_TYPE${NC}"
+    echo ""
+
     echo -e "${BOLD}What was installed:${NC}"
     echo "  ✅ Complete development environment"
-    echo "  ✅ 50+ applications via Homebrew" 
+    echo "  ✅ Applications via Homebrew"
     echo "  ✅ System preferences and shortcuts"
-    echo "  ✅ Environment variables configured (Gradle, API keys)"
-    echo "  ✅ Modern SSH setup instructions"
+    echo "  ✅ Modern SSH setup (1Password SSH Agent)"
+
+    if [ "$MACHINE_TYPE" = "mini" ]; then
+        echo "  ✅ Media server services (Jellyfin, Immich, Paperless, Home Assistant)"
+        echo "  ✅ Backup system (Borgmatic → Hetzner Storage Box)"
+        echo "  ✅ Reverse proxy (Caddy)"
+    fi
     echo ""
-    
+
     echo -e "${BOLD}Next steps:${NC}"
-    echo "  1. Set up config files: ./sync-config-files.sh"
-    echo "  2. Set up 1Password SSH Agent:"
+    echo "  1. Set up 1Password SSH Agent:"
     echo "     • Open 1Password → Settings → Developer → Enable SSH agent"
-    echo "     • Add your SSH key as an SSH Key item in 1Password"
-    echo "  3. Restart your terminal or run: source ~/.zshrc"
-    echo "  4. Test the environment: hs (should rebuild system)"
-    echo "  5. For app-specific setup, see: ~/dev/dotnix/POST-SETUP-APPS.md"
+    echo "  2. Restart your terminal or run: source ~/.zshrc"
+
+    if [ "$MACHINE_TYPE" = "mini" ]; then
+        echo "  3. Start media services:"
+        echo "     • jellyfin-start"
+        echo "     • immich-start"
+        echo "     • paperless-start"
+        echo "     • ha-start"
+        echo "     • borgmatic-start"
+        echo "  4. Verify services: docker ps"
+        echo "  5. Access services:"
+        echo "     • Jellyfin:       http://localhost:8096"
+        echo "     • Immich:         http://localhost:2283"
+        echo "     • Paperless:      http://localhost:8000"
+        echo "     • Home Assistant: http://localhost:8123"
+    else
+        echo "  3. Set up config files: ./sync-config-files.sh"
+        echo "  4. Test the environment: hs (should rebuild system)"
+        echo "  5. For app-specific setup, see: ~/dev/dotnix/POST-SETUP-APPS.md"
+    fi
     echo ""
-    
+
     echo -e "${BOLD}Quick verification:${NC}"
-    echo "  • Test tmux sessionizer: Ctrl+X"
     echo "  • Test shell history: Ctrl+R"
     echo "  • Test git access: git status (in any repo)"
-    echo "  • Test development tools: node --version, aws --version"
+    if [ "$MACHINE_TYPE" = "work" ]; then
+        echo "  • Test tmux sessionizer: Ctrl+X"
+        echo "  • Test development tools: node --version, aws --version"
+    fi
     echo ""
-    
+
     if [ "$DRY_RUN" = true ]; then
         warning "This was a DRY RUN - no actual changes were made"
         echo "Run without --dry-run to perform the actual installation"
     fi
-    
-    success "Your MacBook is ready for development! 🚀"
+
+    success "Your Mac is ready! 🚀"
 }
 
 # ==============================================================================
@@ -430,16 +520,19 @@ show_completion() {
 
 main() {
     show_header
-    
+
     # Always run these checks
     check_prerequisites
-    
+
+    # Detect or select machine type
+    detect_machine_type
+
     # Installation phases
     install_nix
     clone_configuration
     install_nix_darwin
     setup_environment
-    
+
     show_completion
 }
 

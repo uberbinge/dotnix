@@ -4,473 +4,230 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Purpose
 
-This repository contains a comprehensive multi-platform Nix configuration for managing development environments, applications, and system settings across macOS and Linux systems using Nix Flakes. It features advanced version control system (VCS) integration with both Git and Jujutsu (jj), extensive Alfred workflow automation, and secure credential management via 1Password.
+This repository contains a comprehensive multi-platform Nix configuration for managing development environments, applications, and system settings across macOS and Linux systems using Nix Flakes. It supports multiple machine types (work laptop, media server) with shared configuration and machine-specific customizations.
+
+## Machine Types
+
+| Machine | Flake Target | Username | Purpose |
+|---------|--------------|----------|---------|
+| **work** | `.#work` | `waqas.ahmed` | Work MacBook - development environment |
+| **mini** | `.#mini` | `waqas` | Mac Mini - media server with services |
 
 ## Repository Structure
 
 ```
-flake.nix                 # Main flake with universal multi-platform system definitions
-├── bootstrap.sh         # Idempotent MacBook setup script
+flake.nix                 # Main flake with multi-machine system definitions
+├── bootstrap.sh          # Multi-machine setup script (supports --machine work/mini)
 ├── sync-config-files.sh  # 1Password config file synchronization
-├── POST-SETUP-APPS.md   # Post-installation manual app configuration guide
-├── CLAUDE.local.md      # Local Claude-specific notes (gitignored)
+├── POST-SETUP-APPS.md    # Post-installation manual app configuration guide
 ├── common/               # Shared configuration across all platforms
-│   ├── home.nix         # Core Home Manager config with shell setup
-│   ├── nixvim.nix       # Comprehensive Neovim configuration with 40+ plugins
-│   ├── vcs.nix          # Git & Jujutsu (jj) version control configuration
-│   └── scripts.nix      # Custom shell scripts and utilities
-├── darwin/              # macOS-specific configurations
-│   ├── configuration.nix    # System-level macOS settings
-│   ├── homebrew.nix         # GUI apps and Mac App Store apps
-│   ├── defaults.nix         # macOS system preferences & keyboard shortcuts
-│   ├── alfred.nix           # Alfred workflows and shortcuts
-│   ├── home.nix            # macOS-specific home configuration
-│   ├── alfred-workflows/    # Alfred workflow files (.alfredworkflow)
-│   │   ├── website opener.alfredworkflow
-│   │   ├── Gpt-Grammer.alfredworkflow
-│   │   └── Hotkeys - Getting Started.alfredworkflow
-│   └── alfred-icons/        # Custom icons for Alfred shortcuts
-│       ├── brave.png
-│       └── grafana.png
-└── linux/               # Linux/NixOS configurations
-    ├── configuration.nix  # Linux system configuration
-    └── home.nix          # Linux-specific home configuration
+│   ├── home.nix          # Core Home Manager config with shell setup
+│   ├── nixvim.nix        # Comprehensive Neovim configuration
+│   ├── vcs.nix           # Git & Jujutsu (jj) version control configuration
+│   └── scripts.nix       # Custom shell scripts and utilities
+├── darwin/               # macOS-specific configurations
+│   ├── configuration.nix # System-level macOS settings
+│   ├── defaults.nix      # macOS system preferences & keyboard shortcuts
+│   ├── alfred.nix        # Alfred workflows and shortcuts
+│   ├── home.nix          # macOS-specific home configuration
+│   ├── lib.nix           # Shared utilities for darwin modules
+│   ├── work/             # Work Mac specific config
+│   │   └── homebrew.nix  # Work-specific apps
+│   ├── mini/             # Mac Mini media server
+│   │   ├── default.nix   # Mini home-manager config
+│   │   ├── lib.nix       # Mini-specific utilities
+│   │   ├── homebrew.nix  # Mini-specific apps
+│   │   ├── borgmatic.nix # Backup to Hetzner Storage Box
+│   │   ├── caddy.nix     # Reverse proxy
+│   │   ├── scripts.nix   # Mini management scripts
+│   │   └── services/     # Docker-based services
+│   │       ├── home-assistant.nix
+│   │       ├── immich.nix
+│   │       ├── jellyfin.nix
+│   │       └── paperless.nix
+│   ├── homebrew/         # Shared homebrew configurations
+│   │   ├── common.nix
+│   │   ├── development.nix
+│   │   └── productivity.nix
+│   └── alfred-workflows/ # Alfred workflow files
+└── linux/                # Linux/NixOS configurations
+    ├── configuration.nix
+    └── home.nix
 ```
 
 ## Common Commands
 
 ### System Building & Updating
 
-#### macOS Commands
+#### Work Mac
 ```bash
-# Initial setup (one-time)
-nix run nix-darwin -- switch --flake .
+# Initial setup
+./bootstrap.sh --machine work
 
 # Apply changes after modifying configuration
-darwin-rebuild switch --flake ~/dev/dotnix
+sudo darwin-rebuild switch --flake ~/dev/dotnix#work
 
 # Quick rebuild (uses alias 'hs' defined in shell)
 hs
-
-# Update packages to latest versions
-nix flake update
-darwin-rebuild switch --flake ~/dev/dotnix
-
-# Update homebrew apps while preserving browser extensions
-update-homebrew-apps
 ```
 
-#### Linux/NixOS Commands
+#### Mac Mini
 ```bash
-# Home Manager only (uses current user automatically)
+# Initial setup
+./bootstrap.sh --machine mini
+
+# Apply changes
+sudo darwin-rebuild switch --flake ~/dev/dotnix#mini
+```
+
+#### Linux/NixOS
+```bash
+# Home Manager only
 home-manager switch --flake ~/dev/dotnix
 
-# Full NixOS system (requires sudo)
+# Full NixOS system
 sudo nixos-rebuild switch --flake ~/dev/dotnix
 ```
 
-### Development Commands
+### Mac Mini Service Commands
 
+Each service has consistent management commands:
+
+| Service | Start | Stop | Logs | Status | Update |
+|---------|-------|------|------|--------|--------|
+| Jellyfin | `jellyfin-start` | `jellyfin-stop` | `jellyfin-logs` | `jellyfin-status` | `jellyfin-update` |
+| Immich | `immich-start` | `immich-stop` | `immich-logs` | `immich-status` | `immich-update` |
+| Paperless | `paperless-start` | `paperless-stop` | `paperless-logs` | `paperless-status` | `paperless-update` |
+| Home Assistant | `ha-start` | `ha-stop` | `ha-logs` | `ha-status` | `ha-update` |
+| Borgmatic | `borgmatic-start` | `borgmatic-stop` | `borgmatic-logs` | `borgmatic-status` | - |
+
+#### Borgmatic Backup Commands
 ```bash
-# Check Nix configuration formatting
-nix run nixpkgs#nixpkgs-fmt -- --check .
-
-# Format Nix files
-nix run nixpkgs#nixpkgs-fmt -- .
-
-# Open a development shell with Nix tools
-nix develop
-
-# Sync config files from 1Password
-./sync-config-files.sh
-
-# Quick project navigation (tmux-sessionizer)
-# Bound to Ctrl+X in terminal
-tmux-sessionizer
+borgmatic-backup <service>   # Run backup for immich/jellyfin/paperless
+borgmatic-list <service>     # List archives
+borgmatic-info <service>     # Show repo info
+borgmatic-init <service>     # Initialize new repo
 ```
+
+### Service URLs (Mac Mini)
+- **Jellyfin**: http://localhost:8096
+- **Immich**: http://localhost:2283
+- **Paperless**: http://localhost:8000
+- **Home Assistant**: http://localhost:8123
 
 ## Key Features
 
 ### Core Functionality
-- **Universal Platform Support**: Single configuration works on any macOS/Linux machine
-- **Declarative System Management**: Everything defined in code, reproducible across machines
-- **Comprehensive Neovim Setup**: 40+ plugins with LSP, treesitter, and modern UI
-- **Advanced Shell Environment**: Zsh with Starship prompt, Atuin history sync, modern CLI tools
-- **Dual VCS Support**: Git and Jujutsu (jj) with extensive aliases and workflows
-- **Custom Productivity Scripts**: Project navigation, cache management, automation tools
-- **GitHub CLI Integration**: SSH-first configuration with automatic credential management
-- **macOS Regional Settings**: Celsius, Metric, DD/MM/YYYY, Monday first day of week
-- **Window Management**: Always prefer tabs when opening documents
+- **Multi-Machine Support**: Work laptop and media server from same codebase
+- **Declarative System Management**: Everything defined in code, reproducible
+- **Lix Package Manager**: Community Nix fork with better UX
+- **1Password Integration**: All secrets managed via 1Password CLI
 
-### Version Control Systems
+### Mac Mini Services
+- **Jellyfin**: Media streaming server
+- **Immich**: Photo management (Google Photos alternative)
+- **Paperless-ngx**: Document management with OCR
+- **Home Assistant**: Home automation
+- **Borgmatic**: Encrypted backups to Hetzner Storage Box
+- **Caddy**: Reverse proxy with automatic HTTPS
 
-#### Git Configuration
-- **SSH Signing with 1Password**: All commits automatically signed using 1Password SSH agent
-- **Delta Integration**: Beautiful, syntax-highlighted diffs with side-by-side view
-- **Git LFS Support**: Large file storage configured
-- **Smart Aliases**: `gone` (cleanup merged branches), `visual` (gitk), `last` (recent commit)
-- **Cross-platform Credential Helper**: osxkeychain on macOS, cache on Linux
+### Security & Secrets
+- **1Password SSH Agent**: Git signing and SSH operations
+- **Runtime Secret Fetching**: Secrets fetched via `op read` at service start
+- **No Hardcoded Credentials**: All passwords in 1Password
+- **Encrypted Backups**: Borg encryption with passphrase in 1Password
 
-#### Jujutsu (jj) VCS - Modern Git Alternative
-Comprehensive workflow optimized for busy developers:
+## Architecture
 
-**Core Operations:**
-- `js` - status check
-- `jl` - one-line log with author, timestamp, bookmarks
-- `jc [message]` - commit with optional inline message
-- `jds [message]` - describe with optional inline message
-- `jp` - push to remote
-- `jn` - new revision
-- `je` - edit revision
-- `jd` - diff current changes
-- `jr` - rebase
-
-**Advanced Workflows:**
-- `jstart [base-branch]` - Fetch, sync, cleanup merged bookmarks, start new work
-- `jcp [message]` - Commit current work, detect bookmark, push automatically
-- `jpr <branch> [message]` - Create branch, commit, push, auto-create draft PR
-- `jmerge <parent1> <parent2>` - Merge two revisions
-
-**Operation Management (Time Travel):**
-- `jop` - operation log (undo history)
-- `jun` - undo last operation
-- `jor` - restore to specific operation
-
-**Bookmark (Branch) Management:**
-- `jbc`, `jbm`, `jbd`, `jbt` - create, move, delete, track bookmarks
-
-**Log Views with Revsets:**
-- `jlm` - Everything on main branch
-- `jlme` - Main branch + current path
-- `jlmine` - All your authored revisions
-- `jlall` - Everything
-
-### Custom Scripts & Workflows
-
-#### Shell Scripts (common/scripts.nix)
-- **`tmux-sessionizer`**: Quick project navigation tool (Ctrl+X binding)
-- **`update_find_cache.sh`**: Maintains directory cache for fast project navigation
-- **`sync-config-files.sh`**: Syncs AWS, NPM, Gradle configs from 1Password
-- **`update-homebrew-apps`**: Updates homebrew packages while preserving browser extensions
-
-#### Alfred Workflows (darwin/alfred-workflows/)
-Pre-configured workflows stored in repository:
-- **Website Opener**: Custom shortcuts for development sites (GitHub, Grafana, etc.)
-- **GPT Grammar**: Grammar checking integration
-- **Hotkeys**: Getting started guide
-
-Custom icons stored in `darwin/alfred-icons/` for visual consistency.
-
-### Modern Security & Environment Management
-- **1Password Family Account**: All secrets in `Private` vault at `my.1password.eu`
-- **1Password SSH Agent**: Git signing and SSH operations handled by 1Password (no manual keys)
-- **Tailscale SSH**: Machine-to-machine access without manual key management
-- **Config File Sync**: AWS, NPM, Gradle properties synced from 1Password on demand
-- **Cross-platform SSH Signing**: Works identically on macOS and Linux
-- **Automatic User Detection**: Username auto-detected from `$USER` or `FLAKE_USERNAME` env var
-- **Touch ID for Sudo**: Enabled on macOS for convenient authentication
-- **Environment Variables as Code**: API keys loaded via `op://` references in Nix
-
-### Development Tools & Packages
-
-#### Core Development
-- `mise` - Runtime version manager (replaces asdf)
-- `rustup` - Rust toolchain installer
-- `gh` - GitHub CLI with automatic credential integration
-- `lazygit` - Terminal UI for git operations
-- `just` - Command runner (like make but better)
-- `deno` - JavaScript/TypeScript runtime
-
-#### Modern CLI Replacements
-- `bat` → replaces `cat` (syntax highlighting)
-- `eza` → replaces `ls` (modern, colored output)
-- `fd` → replaces `find` (fast, user-friendly)
-- `ripgrep` → replaces `grep` (fastest search)
-- `delta` → enhances `git diff` (beautiful diffs)
-- `zoxide` → enhances `cd` (smart directory jumping)
-
-#### Cloud & DevOps
-- `awscli` - AWS command line interface
-- `aws-sso-cli` - AWS SSO authentication helper
-- `helm` - Kubernetes package manager
-- `docker` + `docker-compose` - Container management
-- Podman wrappers (aliased to docker commands)
-
-#### Productivity & Media
-- `fzf` - Fuzzy finder for terminal
-- `jq` - JSON processor
-- `yt-dlp` - YouTube downloader
-- `ncspot` - Spotify TUI client
-- `atuin` - Enhanced shell history with sync
-
-### Keyboard Shortcuts & System Integration
-- **Spotlight Shortcuts Disabled**: Cmd+Space freed for Alfred (shortcuts 60, 64, 65 disabled)
-- **GitHub CLI Integration**: Automatic git credential management
-- **Touch ID for Sudo**: Enabled on macOS
-- **Ctrl+X**: tmux-sessionizer (quick project navigation)
-- **Ctrl+R**: Atuin enhanced history search
-
-## Architecture Overview
-
-This repository uses **Nix Flakes** for deterministic, reproducible system configurations. The architecture is designed for:
-1. **Universal Configuration**: Single config works on any machine (hostname-agnostic)
-2. **Username Flexibility**: Auto-detects username from environment (`FLAKE_USERNAME` or `$USER`)
-3. **Modular Design**: Shared common config with platform-specific overrides
-4. **Secure Secrets**: All credentials managed via 1Password, never committed to git
-
-### Key Architectural Components
-
-#### 1. Flake Inputs (`flake.nix`)
-- `nixpkgs` - Main package repository (unstable channel)
-- `nix-darwin` - macOS system configuration
-- `home-manager` - User environment management
-- `nix-homebrew` - Declarative Homebrew management
-- `nixvim` - Neovim configuration as Nix module
-- `website-opener` - Custom Alfred workflow helper
-
-#### 2. Configuration Function (`mkConfiguration`)
-Creates system configurations with these parameters:
-- `system` - Target platform (aarch64-darwin, aarch64-linux, x86_64-linux)
-- `username` - User account name (auto-detected)
-- `hostname` - Optional hostname (not required for macOS)
-- `isNixOS` - Boolean flag for full NixOS vs Home Manager only
-
-#### 3. Special Args (Passed to All Modules)
+### Flake Configurations
 ```nix
-specialArgs = {
-  inherit system username hostname;
-  githubUserEmail = "1692495+uberbinge@users.noreply.github.com";
-  githubUserName = "uberbinge";
-}
-```
-
-#### 4. Universal Darwin Configuration
-```nix
-darwinConfigurations.default = mkConfiguration {
-  system = "aarch64-darwin";
-  username = currentUsername;  # Auto-detected
-  hostname = "mac";  # Generic, doesn't need to match actual hostname
+darwinConfigurations = {
+  work = mkConfiguration { username = "waqas.ahmed"; hostname = "work"; ... };
+  mini = mkConfiguration { username = "waqas"; hostname = "mini"; ... };
 };
 ```
 
-Usage: `darwin-rebuild switch --flake .#default`
+### Service Pattern (Mini)
+Each service in `darwin/mini/services/` follows this pattern:
+1. **Docker Compose file**: Managed by Nix, written to `~/.config/media-server/<service>/`
+2. **Start script**: Fetches secrets from 1Password, generates `.env`, starts containers
+3. **launchd agent**: Auto-starts service on login
+4. **Management scripts**: start/stop/logs/status/update commands
 
-## Security Notes
-
-### 1Password Integration
-- **Account Type**: Family account at `my.1password.eu`
-- **Vault**: All secrets stored in `Private` vault
-- **SSH Agent**: Handles all SSH operations (no manual key files)
-- **Git Signing**: Commits signed using SSH key from 1Password
-- **Environment Variables**: Loaded via `op://Private/<item>/notesPlain` syntax
-- **Config Files**: AWS, NPM, Gradle properties synced on-demand
-
-### Git Commit Signing
-```nix
-user.signingkey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCvxBgc...";
-gpg.format = "ssh";
-gpg."ssh".program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign";  # macOS
-# or: "${pkgs._1password-gui}/bin/op-ssh-sign"  # Linux
-commit.gpgsign = true;
-```
-
-### Touch ID for Sudo (macOS)
-Enabled in `darwin/configuration.nix` for convenient authentication without typing password.
-
-### No Manual Key Management
-- SSH keys: 1Password SSH Agent
-- Git signing: 1Password SSH Agent  
-- Machine-to-machine: Tailscale SSH
-- API keys: 1Password `op://` references
-
-## Configuration Areas
-
-### System Preferences (darwin/defaults.nix)
-
-#### Regional & Format Settings
-- **Temperature**: Celsius
-- **Measurement**: Metric system
-- **Date Format**: DD/MM/YYYY
-- **Number Format**: 1,234,567.89 (comma thousand separator)
-- **First Day of Week**: Monday
-- **Clock**: 24-hour format
-
-#### Window Management
-- **Tab Preference**: Always prefer tabs when opening documents
-- **Window Behavior**: Consistent tabbed interface across apps
-
-#### Keyboard Shortcuts
-- **Spotlight Disabled**: Shortcuts 60, 64, 65 disabled to free Cmd+Space
-- **Alfred Ready**: Cmd+Space available for Alfred configuration
-- **Touch ID**: Enabled for sudo authentication
-
-### Development Environment (common/home.nix)
-
-#### Shell Configuration
-- **Shell**: Zsh with extensive customization
-- **Prompt**: Starship (fast, customizable, multi-language support)
-- **History**: Atuin with cloud sync capability
-- **Directory Navigation**: zoxide (smart `cd` replacement)
-- **Multiplexer**: tmux with custom sessionizer (Ctrl+X)
-
-#### GitHub CLI (gh)
+### 1Password Secret Pattern
 ```bash
-gh config set git_protocol ssh      # Always use SSH
-gh config set editor nvim           # Use Neovim for editing
-gh auth login                       # Automatic credential helper setup
+# In start scripts
+DB_PASSWORD=$(op read "op://Private/<item>/password")
+# Validate
+if [ -z "$DB_PASSWORD" ]; then
+  echo "ERROR: Failed to load secret" >&2
+  exit 1
+fi
+# Write to .env (never committed)
+echo "DB_PASSWORD=$DB_PASSWORD" > .env
 ```
 
-#### Environment Variables (1Password Integration)
-```nix
-sessionVariables = {
-  EDITOR = "nvim";
-  TELEGRAM_BOT = "op://Private/telegram-bot/notesPlain";
-  TELEGRAM_CHAT_ID = "op://Private/telegram-chat-id/notesPlain";
-  BRAVE_API_KEY = "op://Private/brave-api-key/notesPlain";
-  TEST_USER = "op://Private/test-user/notesPlain";
-};
-```
+## Adding a New Service (Mini)
 
-### Version Control Systems (common/vcs.nix)
+1. Create `darwin/mini/services/<service>.nix`
+2. Add to imports in `darwin/mini/default.nix`
+3. Create 1Password items for any secrets
+4. Rebuild: `sudo darwin-rebuild switch --flake ~/dev/dotnix#mini`
+5. Start: `<service>-start`
 
-#### Git Features
-- **SSH Signing**: Every commit automatically signed
-- **Delta Diff Viewer**: Syntax highlighting, side-by-side diffs, line numbers
-- **LFS Support**: Large file storage configured
-- **Auto Remote Tracking**: `push.autoSetupRemote = true`
-- **Diff3 Merge Style**: Better conflict resolution with common ancestor
-- **Color-moved Detection**: Highlights moved code blocks
+## Adding a New Backup (Borgmatic)
 
-#### Jujutsu (jj) Features
-- **Auto Local Bookmarks**: Git branches automatically become jj bookmarks
-- **Delta Integration**: Same beautiful diffs as git
-- **Custom Templates**: One-line log format with author, timestamp, change ID
-- **Smart Workflows**: Functions for common operations (start, commit+push, PR creation)
-- **Time Travel**: Full operation log with undo/restore capabilities
-
-### Alfred Integration (darwin/alfred.nix)
-
-#### Installed Workflows
-- **Website Opener**: Quick access to development sites and tools
-- **GPT Grammar**: Grammar checking integration
-- **Hotkeys**: Getting started workflow
-
-#### Custom Icons
-Icons stored in `darwin/alfred-icons/` for consistent visual branding:
-- `brave.png` - Brave browser shortcuts
-- `grafana.png` - Grafana dashboard links
-
-### Homebrew Management (darwin/homebrew.nix)
-
-#### Cask Applications (GUI Apps)
-- **Productivity**: Alfred, Caffeine, Obsidian, Raycast, DeepL
-- **Development**: JetBrains Toolbox, Docker, Ghostty terminal
-- **Communication**: Beeper, Slack, Discord
-- **Utilities**: Lunar (display management), Ice (menu bar management), Choosy (browser picker)
-
-#### Brew Formulas (CLI Tools)
-- **AWS**: awscli, aws-sso-cli
-- **DevOps**: helm, just, scrcpy
-- **Productivity**: mise, pandoc
-- **Security**: gnupg
-
-#### Mac App Store Apps (via mas)
-Managed declaratively through homebrew configuration.
-
-## Post-Installation Setup
-
-See `POST-SETUP-APPS.md` for comprehensive post-installation guide covering:
-- **Security**: 1Password SSH agent, Tailscale VPN
-- **Development**: Atuin sync, GitHub CLI auth, AWS configuration
-- **Productivity**: Alfred license and workflows, browser sign-ins
-- **Verification**: Checklist to ensure everything works
-
-## Common Workflows
-
-### Daily Development
-```bash
-# Start your day
-jstart main              # Fetch latest, clean up, start new work
-
-# Make changes, commit, and push
-jcp "Add new feature"    # Auto-detects branch, commits, pushes
-
-# Create a PR
-jpr feat-branch "New feature description"  # Creates branch, commits, pushes, opens draft PR
-
-# Quick project switching
-# Press Ctrl+X, type project name, hit enter
-
-# Rebuild system after config changes
-hs                       # Alias for darwin-rebuild switch
-```
-
-### Git vs Jujutsu Decision Matrix
-- **Use Git when**: Working with teams unfamiliar with jj, existing repos with complex history
-- **Use Jujutsu when**: Personal projects, experimental work, need powerful undo, want better UX
-
-Both are fully configured and ready to use. Jujutsu can work with Git repos seamlessly.
+1. Create Hetzner sub-account (e.g., `sub4`)
+2. Add SSH public key to sub-account
+3. Add known_hosts entry in `borgmatic.nix`
+4. Add backup config using `mkBorgmaticConfig`
+5. Add volume mount in docker-compose section
+6. Add cron schedule
+7. Rebuild and run `borgmatic-init <service>`
 
 ## Troubleshooting
 
-### "Command not found" after rebuild
+### Service won't start
 ```bash
-source ~/.zshrc          # Reload shell environment
-# or just restart terminal
+# Check Docker is running
+docker ps
+
+# Check logs
+<service>-logs
+
+# Verify 1Password CLI works
+op read "op://Private/test-item/password"
+```
+
+### Rebuild fails with "file not found"
+```bash
+# Nix flakes only see committed files
+git add .
+sudo darwin-rebuild switch --flake ~/dev/dotnix#<machine>
 ```
 
 ### 1Password SSH agent not working
 ```bash
-ssh-add -l               # Should list your 1Password keys
-# If empty, check 1Password Settings → Developer → SSH agent is enabled
+ssh-add -l  # Should list keys
+# Check: 1Password → Settings → Developer → SSH agent enabled
 ```
 
-### Darwin rebuild fails
+## Bootstrap Script
+
 ```bash
-# Check for syntax errors
-nix flake check
+# Auto-detect machine type (by username)
+./bootstrap.sh
 
-# Format all nix files
-nix run nixpkgs#nixpkgs-fmt -- .
+# Explicit machine type
+./bootstrap.sh --machine work
+./bootstrap.sh --machine mini
 
-# Try with more verbose output
-darwin-rebuild switch --flake ~/dev/dotnix --show-trace
+# Dry run
+./bootstrap.sh --machine mini --dry-run
 ```
 
-### Jujutsu workflow questions
-```bash
-jop                      # Show operation history (your safety net)
-jun                      # Undo last operation if something went wrong
-jj help                  # Built-in help system
-```
-
-## Development & Contribution
-
-### Formatting
-This repository uses `nixpkgs-fmt` for consistent Nix formatting:
-```bash
-nix develop              # Enter dev shell with formatting tools
-nixpkgs-fmt --check .    # Check formatting
-nixpkgs-fmt .            # Auto-format all files
-```
-
-### Testing Changes
-1. Make changes to configuration files
-2. Run `darwin-rebuild switch --flake ~/dev/dotnix` (or `hs` alias)
-3. Test the changes
-4. If something breaks, the previous generation is still available in System Preferences → Profiles
-
-### Adding New Packages
-- **CLI tools**: Add to `common/home.nix` packages list
-- **macOS GUI apps**: Add to `darwin/homebrew.nix` casks
-- **System config**: Modify appropriate platform-specific configuration.nix
-
-## Philosophy & Design Principles
-
-1. **Declarative Over Imperative**: Everything defined in code, no manual steps
-2. **Universal Over Specific**: Single config works on any machine
-3. **Secure by Default**: All secrets in 1Password, never in git
-4. **Modern Tools**: Prefer better alternatives (bat > cat, eza > ls, jj > git for new work)
-5. **Developer Experience**: Optimize for productivity (aliases, shortcuts, automation)
-6. **Cross-platform**: Maximize code sharing between macOS and Linux
-7. **Reproducible**: Anyone can recreate this setup from scratch using bootstrap.sh
+The script:
+1. Installs Lix (Nix fork)
+2. Clones this repository
+3. Runs `darwin-rebuild switch --flake .#<machine>`
+4. Shows machine-specific next steps
