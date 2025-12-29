@@ -220,6 +220,11 @@
       (lib.mkIf pkgs.stdenv.isLinux {
         hs = "cd ~/dev/dotnix && sudo nixos-rebuild switch --flake .#nixos";
       })
+
+      # Nix cleanup - delete generations older than 30 days
+      {
+        nix-cleanup = "sudo nix-collect-garbage --delete-older-than 30d";
+      }
     ];
   };
 
