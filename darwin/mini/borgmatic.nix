@@ -12,10 +12,16 @@ let
   # Common SSH command for all repos
   sshCommand = "ssh -i /ssh/id_rsa -p 23 -o IdentitiesOnly=yes -o ServerAliveInterval=60 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/ssh/known_hosts";
 
-  # Setup SSH key, known_hosts, and passphrase from 1Password
+  # Setup SSH key, known_hosts, passphrase, and generate configs from 1Password
   secretSetup = ''
     SSH_DIR="${serviceConfigDir}/ssh"
-    mkdir -p "$SSH_DIR"
+    CONFIG_DIR="${serviceConfigDir}/config.d"
+    mkdir -p "$SSH_DIR" "$CONFIG_DIR"
+
+    echo "Fetching Hetzner account ID from 1Password..."
+    HETZNER_ACCOUNT=${fetch1PasswordSecret { item = "Hetzner Storage Box Account"; field = "notesPlain"; }}
+    ${validate1PasswordSecret { secretVar = "HETZNER_ACCOUNT"; item = "Hetzner Storage Box Account"; field = "notesPlain"; }}
+    echo "Hetzner account ID fetched"
 
     echo "Fetching SSH key from 1Password..."
     SSH_KEY=${fetch1PasswordSecret { item = "Hetzner Borg Backup Keys"; field = "ssh-private-key"; }}
@@ -38,6 +44,14 @@ let
     # Write .env file for docker-compose
     echo "BORG_PASSPHRASE=$BORG_PASSPHRASE" > "${serviceConfigDir}/.env"
     chmod 600 "${serviceConfigDir}/.env"
+
+    # Copy fresh config templates from nix store and substitute account ID
+    echo "Generating borgmatic configs..."
+    cp -f "${immichConfig}" "$CONFIG_DIR/immich.yaml"
+    cp -f "${jellyfinConfig}" "$CONFIG_DIR/jellyfin.yaml"
+    cp -f "${paperlessConfig}" "$CONFIG_DIR/paperless.yaml"
+    sed -i "" "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "$CONFIG_DIR"/*.yaml
+    echo "Borgmatic configs generated"
   '';
 
   # Cleanup .env file with passphrase
@@ -193,6 +207,7 @@ let
   };
 
   # Generate borgmatic config for a service
+  # Uses HETZNER_ACCOUNT_PLACEHOLDER which is replaced at runtime with real account ID from 1Password
   mkBorgmaticConfig = {
     service,
     subAccount,
@@ -204,7 +219,7 @@ let
     keepMonthly ? 6,
   }: {
     repositories = [{
-      path = "ssh://REDACTED-USER-${subAccount}@REDACTED-USER-${subAccount}.your-storagebox.de:23/./borg-${service}";
+      path = "ssh://HETZNER_ACCOUNT_PLACEHOLDER-${subAccount}@HETZNER_ACCOUNT_PLACEHOLDER-${subAccount}.your-storagebox.de:23/./borg-${service}";
     }];
     compression = "zstd,6";
     archive_name_format = "${service}-{now}";
@@ -360,12 +375,12 @@ in
 
   # Write Docker-related files directly via activation script (no symlinks)
   # This avoids the symlink-to-real-file dance that conflicts with Home Manager
-  # Note: known_hosts is fetched from 1Password at runtime by borgmatic-start
+  # Note: YAML configs contain HETZNER_ACCOUNT_PLACEHOLDER which is replaced at runtime by borgmatic-start
   home.activation.borgmaticWriteFiles = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     echo "Writing borgmatic Docker files..."
     $DRY_RUN_CMD mkdir -p "${serviceConfigDir}/config.d" "${serviceConfigDir}/ssh" "${serviceConfigDir}/logs"
 
-    # Copy generated YAML configs
+    # Copy generated YAML configs (contain placeholder, replaced at runtime)
     $DRY_RUN_CMD cp -f "${immichConfig}" "${serviceConfigDir}/config.d/immich.yaml"
     $DRY_RUN_CMD cp -f "${jellyfinConfig}" "${serviceConfigDir}/config.d/jellyfin.yaml"
     $DRY_RUN_CMD cp -f "${paperlessConfig}" "${serviceConfigDir}/config.d/paperless.yaml"
