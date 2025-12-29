@@ -47,10 +47,10 @@ let
 
     # Copy fresh config templates from nix store and substitute account ID
     echo "Generating borgmatic configs..."
-    cp -f "${immichConfig}" "$CONFIG_DIR/immich.yaml"
-    cp -f "${jellyfinConfig}" "$CONFIG_DIR/jellyfin.yaml"
-    cp -f "${paperlessConfig}" "$CONFIG_DIR/paperless.yaml"
-    sed -i "" "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "$CONFIG_DIR"/*.yaml
+    rm -f "$CONFIG_DIR"/*.yaml  # Remove old read-only files from nix store
+    sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${immichConfig}" > "$CONFIG_DIR/immich.yaml"
+    sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${jellyfinConfig}" > "$CONFIG_DIR/jellyfin.yaml"
+    sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${paperlessConfig}" > "$CONFIG_DIR/paperless.yaml"
     echo "Borgmatic configs generated"
   '';
 
@@ -375,15 +375,10 @@ in
 
   # Write Docker-related files directly via activation script (no symlinks)
   # This avoids the symlink-to-real-file dance that conflicts with Home Manager
-  # Note: YAML configs contain HETZNER_ACCOUNT_PLACEHOLDER which is replaced at runtime by borgmatic-start
+  # Note: YAML configs are generated at runtime by borgmatic-start (with secret substitution)
   home.activation.borgmaticWriteFiles = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     echo "Writing borgmatic Docker files..."
     $DRY_RUN_CMD mkdir -p "${serviceConfigDir}/config.d" "${serviceConfigDir}/ssh" "${serviceConfigDir}/logs"
-
-    # Copy generated YAML configs (contain placeholder, replaced at runtime)
-    $DRY_RUN_CMD cp -f "${immichConfig}" "${serviceConfigDir}/config.d/immich.yaml"
-    $DRY_RUN_CMD cp -f "${jellyfinConfig}" "${serviceConfigDir}/config.d/jellyfin.yaml"
-    $DRY_RUN_CMD cp -f "${paperlessConfig}" "${serviceConfigDir}/config.d/paperless.yaml"
 
     # Copy docker-compose.yml
     $DRY_RUN_CMD cp -f "${dockerComposeFile}" "${serviceConfigDir}/docker-compose.yml"
