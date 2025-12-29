@@ -212,8 +212,9 @@
       }
 
       # Platform-specific hs alias using lib.mkIf
+      # Uses username-based detection (matches bootstrap.sh logic)
       (lib.mkIf pkgs.stdenv.isDarwin {
-        hs = "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#$(hostname -s | tr '[:upper:]' '[:lower:]' | grep -q mini && echo mini || echo work)";
+        hs = "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#$([[ $(whoami) == 'waqas' ]] && echo mini || echo work)";
       })
 
       (lib.mkIf pkgs.stdenv.isLinux {

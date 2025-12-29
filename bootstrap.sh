@@ -22,8 +22,6 @@ set -e
 #   # Other options:
 #   ./bootstrap.sh --dry-run       # Show what would be done
 #   ./bootstrap.sh --force         # Force reinstall components
-#
-#   # Note: For work machine config files, run ./sync-config-files.sh after bootstrap
 # ==============================================================================
 
 # Script configuration
@@ -54,11 +52,11 @@ if [ "$EUID" -eq 0 ]; then
     exit 1
 fi
 
-# Check prerequisites before starting
-check_prerequisites() {
+# Check Xcode prerequisites before starting (called early in main)
+check_xcode_prerequisites() {
     echo -e "${BLUE}🔍 Checking Prerequisites${NC}"
     echo -e "${DIM}──────────────────────────────────────────────────────────────────────${NC}"
-    
+
     # Check for Xcode Command Line Tools
     if ! command -v git >/dev/null 2>&1 || ! command -v make >/dev/null 2>&1; then
         echo -e "${RED}❌ Xcode Command Line Tools not found${NC}"
@@ -79,7 +77,7 @@ check_prerequisites() {
         echo -e "${DIM}💡 Xcode Command Line Tools must be installed manually due to macOS security restrictions${NC}"
         exit 1
     fi
-    
+
     success "Xcode Command Line Tools found"
 }
 
@@ -203,35 +201,18 @@ detect_machine_type() {
         return 0
     fi
 
-    # Try to auto-detect based on username
+    # Auto-detect based on username (more stable than hostname)
+    # Username is set at account creation and rarely changes
     if [ "$CURRENT_USER" = "waqas" ]; then
         MACHINE_TYPE="mini"
         log "Auto-detected machine type: mini (based on username)"
         return 0
-    elif [ "$CURRENT_USER" = "waqas.ahmed" ]; then
+    else
+        # Default to work for any other username (including waqas.ahmed)
         MACHINE_TYPE="work"
         log "Auto-detected machine type: work (based on username)"
         return 0
     fi
-
-    # Interactive selection if can't auto-detect
-    echo ""
-    echo -e "${BOLD}Select machine type:${NC}"
-    echo "  1) work  - Work MacBook (development machine)"
-    echo "  2) mini  - Mac Mini (media server with services)"
-    echo ""
-    read -p "Enter choice (1 or 2): " choice
-
-    case $choice in
-        1) MACHINE_TYPE="work" ;;
-        2) MACHINE_TYPE="mini" ;;
-        *)
-            error "Invalid choice"
-            exit 1
-            ;;
-    esac
-
-    success "Selected machine type: $MACHINE_TYPE"
 }
 
 # ==============================================================================
@@ -273,28 +254,28 @@ show_header() {
     echo ""
 }
 
-check_prerequisites() {
-    step "🔍 Checking Prerequisites"
-    
+check_system_requirements() {
+    step "🔍 Checking System Requirements"
+
     # Check macOS version
     MACOS_VERSION=$(sw_vers -productVersion)
     log "macOS Version: $MACOS_VERSION"
-    
+
     # Check architecture
     ARCH=$(uname -m)
     log "Architecture: $ARCH"
-    
+
     # Check available disk space
     AVAILABLE_SPACE=$(df -h / | awk 'NR==2{print $4}')
     log "Available disk space: $AVAILABLE_SPACE"
-    
+
     # Check if we have internet
     if ! ping -c 1 google.com >/dev/null 2>&1; then
         error "No internet connection detected"
         exit 1
     fi
     success "Internet connection verified"
-    
+
     # Add common homebrew paths for tools
     export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 }
@@ -349,13 +330,13 @@ install_nix() {
 
 clone_configuration() {
     step "📦 Configuration Repository"
-    
+
     # Create work directory structure
     execute mkdir -p "$WORK_DIR"
-    
+
     # Create config directories for 1Password integration
     execute mkdir -p ~/.config/alfred
-    
+
     if is_installed "config-repo" && [ "$FORCE_INSTALL" != true ]; then
         success "Configuration repository already exists"
         log "Updating configuration..."
@@ -365,15 +346,15 @@ clone_configuration() {
         fi
         return 0
     fi
-    
+
     if [ -d "$CONFIG_DIR" ] && [ "$FORCE_INSTALL" = true ]; then
         warning "Removing existing configuration for fresh clone..."
         execute rm -rf "$CONFIG_DIR"
     fi
-    
+
     if [ ! -d "$CONFIG_DIR" ]; then
         log "Cloning configuration repository..."
-        
+
         # Try SSH first, fall back to HTTPS
         CLONE_SUCCESS=false
         if [ "$DRY_RUN" != true ]; then
@@ -382,7 +363,7 @@ clone_configuration() {
                 log "Cloned via SSH"
             fi
         fi
-        
+
         if [ "$CLONE_SUCCESS" != true ] && [ "$DRY_RUN" != true ]; then
             log "Trying HTTPS clone..."
             if git clone "$REPO_URL" "$CONFIG_DIR"; then
@@ -390,7 +371,7 @@ clone_configuration() {
                 log "Cloned via HTTPS"
             fi
         fi
-        
+
         if [ "$DRY_RUN" = true ] || [ "$CLONE_SUCCESS" = true ]; then
             success "Configuration repository cloned"
         else
@@ -437,10 +418,9 @@ install_nix_darwin() {
 
 setup_environment() {
     step "🔄 Environment Setup"
-    
+
     log "Environment variables: Managed by Nix home.sessionVariables"
-    log "Config files: Run './sync-config-files.sh' to sync from 1Password"
-    
+
     # Note about optional setup
     log "Optional: Set up Atuin history sync manually after bootstrap:"
     log "  atuin register  # or: atuin login"
@@ -491,9 +471,8 @@ show_completion() {
         echo "     • Paperless:      http://localhost:8000"
         echo "     • Home Assistant: http://localhost:8123"
     else
-        echo "  3. Set up config files: ./sync-config-files.sh"
-        echo "  4. Test the environment: hs (should rebuild system)"
-        echo "  5. For app-specific setup, see: ~/dev/dotnix/POST-SETUP-APPS.md"
+        echo "  3. Test the environment: hs (should rebuild system)"
+        echo "  4. For app-specific setup, see: ~/dev/dotnix/POST-SETUP-APPS.md"
     fi
     echo ""
 
@@ -519,10 +498,13 @@ show_completion() {
 # ==============================================================================
 
 main() {
+    # Check Xcode tools first (before showing header)
+    check_xcode_prerequisites
+
     show_header
 
-    # Always run these checks
-    check_prerequisites
+    # Check system requirements (macOS version, disk space, internet)
+    check_system_requirements
 
     # Detect or select machine type
     detect_machine_type
