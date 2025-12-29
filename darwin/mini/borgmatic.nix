@@ -12,10 +12,11 @@ let
   # Common SSH command for all repos
   sshCommand = "ssh -i /ssh/id_rsa -p 23 -o IdentitiesOnly=yes -o ServerAliveInterval=60 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/ssh/known_hosts";
 
-  # Setup SSH key and passphrase from 1Password
+  # Setup SSH key, known_hosts, and passphrase from 1Password
   secretSetup = ''
     SSH_DIR="${serviceConfigDir}/ssh"
     mkdir -p "$SSH_DIR"
+
     echo "Fetching SSH key from 1Password..."
     SSH_KEY=${fetch1PasswordSecret { item = "Hetzner Borg Backup Keys"; field = "ssh-private-key"; }}
     ${validate1PasswordSecret { secretVar = "SSH_KEY"; item = "Hetzner Borg Backup Keys"; field = "ssh-private-key"; }}
@@ -23,13 +24,13 @@ let
     chmod 600 "$SSH_DIR/id_rsa"
     echo "SSH key fetched and secured"
 
-    # Fetch known_hosts if not present
-    if [ ! -f "$SSH_DIR/known_hosts" ]; then
-      echo "Fetching known_hosts from 1Password..."
-      ${pkgs._1password-cli}/bin/op document get "known-hosts" --vault="Private" --out-file="$SSH_DIR/known_hosts" 2>/dev/null || true
-    fi
+    echo "Fetching known_hosts from 1Password..."
+    KNOWN_HOSTS=${fetch1PasswordSecret { item = "Hetzner Storage Box Known Hosts"; field = "notesPlain"; }}
+    ${validate1PasswordSecret { secretVar = "KNOWN_HOSTS"; item = "Hetzner Storage Box Known Hosts"; field = "notesPlain"; }}
+    echo "$KNOWN_HOSTS" > "$SSH_DIR/known_hosts"
+    chmod 600 "$SSH_DIR/known_hosts"
+    echo "known_hosts fetched and secured"
 
-    # Load passphrase from 1Password
     echo "Loading passphrase from 1Password..."
     BORG_PASSPHRASE=${fetch1PasswordSecret { item = "Hetzner Borg Backup Keys"; field = "Passphrase"; }}
     ${validate1PasswordSecret { secretVar = "BORG_PASSPHRASE"; item = "Hetzner Borg Backup Keys"; field = "Passphrase"; }}
@@ -322,12 +323,6 @@ let
     RUN mkdir -p /var/log/borgmatic
   '';
 
-  knownHostsContent = ''
-    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
-    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
-    [REDACTED-STORAGEBOX]:23 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICf9svRenC/PLKIL9nk6K/pxQgoiFC41wTNvoIncOxs
-  '';
-
 in
 {
   # Management scripts
@@ -365,6 +360,7 @@ in
 
   # Write Docker-related files directly via activation script (no symlinks)
   # This avoids the symlink-to-real-file dance that conflicts with Home Manager
+  # Note: known_hosts is fetched from 1Password at runtime by borgmatic-start
   home.activation.borgmaticWriteFiles = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     echo "Writing borgmatic Docker files..."
     $DRY_RUN_CMD mkdir -p "${serviceConfigDir}/config.d" "${serviceConfigDir}/ssh" "${serviceConfigDir}/logs"
@@ -385,10 +381,6 @@ in
     $DRY_RUN_CMD cat > "${serviceConfigDir}/Dockerfile" << 'DOCKERFILE'
     ${dockerfileContent}
     DOCKERFILE
-
-    $DRY_RUN_CMD cat > "${serviceConfigDir}/ssh/known_hosts" << 'KNOWNHOSTS'
-    ${knownHostsContent}
-    KNOWNHOSTS
 
     echo "Borgmatic Docker files written"
   '';
