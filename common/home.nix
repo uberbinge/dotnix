@@ -127,7 +127,7 @@
     initContent = lib.mkMerge [
       # Common shell initialization
       ''
-        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.amp/bin:$PATH"
         eval "$(mise activate zsh)"
         setopt AUTO_CD
 
