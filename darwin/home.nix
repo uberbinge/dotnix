@@ -39,6 +39,9 @@
         echo "Browser extensions should be preserved automatically"
       '';
     })
+
+    # Jujutsu TUI
+    jjui
   ];
 
   home.file.".local/share/mise/config.toml".text = ''

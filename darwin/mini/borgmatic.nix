@@ -51,6 +51,7 @@ let
     sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${immichConfig}" > "$CONFIG_DIR/immich.yaml"
     sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${jellyfinConfig}" > "$CONFIG_DIR/jellyfin.yaml"
     sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${paperlessConfig}" > "$CONFIG_DIR/paperless.yaml"
+    sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${media2tbConfig}" > "$CONFIG_DIR/media2tb.yaml"
     echo "Borgmatic configs generated"
   '';
 
@@ -255,6 +256,7 @@ let
         "${mediaVolume}/immich/library/upload:/sources/immich:ro"
         "${mediaVolume}/jellyfin:/sources/jellyfin:ro"
         "${mediaVolume}/paperless:/sources/paperless:ro"
+        "/Volumes/2tb:/sources/media2tb:ro"
       ];
     };
   };
@@ -309,6 +311,23 @@ let
     keepMonthly = 12;
   });
 
+  # 2TB drive backup - ONE-TIME ARCHIVE (not scheduled, keep forever)
+  media2tbConfig = yamlFormat.generate "media2tb-borgmatic.yaml" (mkBorgmaticConfig {
+    service = "media2tb";
+    subAccount = "sub5";
+    sourceDirs = [ "/sources/media2tb" ];
+    excludePatterns = [
+      "**/.DS_Store"
+      "**/.Trash/**"
+      "**/.Spotlight-V100/**"
+      "**/.fseventsd/**"
+    ];
+    # Keep everything - no pruning for one-time archive
+    keepDaily = 9999;
+    keepWeekly = 0;
+    keepMonthly = 0;
+  });
+
   dockerComposeFile = mkDockerComposeYaml "borgmatic" composeConfig;
 
   # Helper to export BORG env vars from container's init process (cron doesn't inherit Docker env)
@@ -325,6 +344,8 @@ let
 
     # Paperless backup - 5 AM daily
     0 5 * * * ${exportBorgEnv}; borgmatic --config /etc/borgmatic/config.d/paperless.yaml --verbosity 1 --stats >> /var/log/borgmatic/paperless-cron.log 2>&1
+
+    # Note: media2tb is a one-time archive - run manually with: borgmatic-backup media2tb
   '';
 
   dockerfileContent = ''
