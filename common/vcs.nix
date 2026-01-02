@@ -7,6 +7,7 @@
       ".DS_Store"
       ".mise.toml"
       "mise.toml"
+      ".zed"
       "# Claude Code settings"
       ".claude/settings.local.json"
       "git_ignored*"
