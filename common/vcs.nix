@@ -265,7 +265,7 @@
       fi
 
       echo "ℹ️  Pushing bookmark: $current_bookmark"
-      if ! jj git push -b "$current_bookmark" --allow-new; then
+      if ! jj git push -b "$current_bookmark"; then
         echo "❌ Push failed"
         return 1
       fi
@@ -295,7 +295,7 @@
       fi
 
       jj bookmark set "$branch_name" -r @-
-      jj git push -b "$branch_name" --allow-new
+      jj git push -b "$branch_name"
 
       if command -v gh >/dev/null 2>&1; then
         echo "Creating draft PR..."
