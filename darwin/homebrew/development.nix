@@ -14,6 +14,21 @@
       # AWS
       "aws-sso-cli"
       "awscli"
+      "awscurl"
+
+      # Go tools
+      "golangci-lint"
+      "gofumpt"
+
+      # Infrastructure & policy
+      "opentofu"
+      "conftest"
+      "opa"
+      "regal"
+      "yq"
+
+      # Database
+      "sqlite"
 
       # AI tools
       "gemini-cli"
