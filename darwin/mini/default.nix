@@ -15,6 +15,7 @@ in
     ./scripts.nix
     ./borgmatic.nix
     ./caddy.nix
+    ./local-backup.nix
   ];
 
   # Pass volume paths to other modules via session variables
