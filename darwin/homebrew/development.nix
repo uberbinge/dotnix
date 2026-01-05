@@ -29,6 +29,7 @@
 
       # Database
       "sqlite"
+      "supabase"
 
       # AI tools
       "gemini-cli"
