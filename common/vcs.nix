@@ -75,6 +75,9 @@
 
       # Automatically setup remote tracking for new branches
       push.autoSetupRemote = true;
+
+      # Rebase on pull instead of merge
+      pull.rebase = true;
     };
   };
 
