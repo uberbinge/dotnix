@@ -68,7 +68,19 @@
           },
         })
         require('mason').setup()
-        require('telescope').setup()
+        require('telescope').setup({
+          defaults = {
+            file_ignore_patterns = { "^.git/" },
+          },
+          pickers = {
+            find_files = {
+              hidden = true,
+            },
+            live_grep = {
+              additional_args = { "--hidden" },
+            },
+          },
+        })
         require('telescope').load_extension('fzf')
         require('telescope').load_extension('ui-select')
         vim.keymap.set('n', '<leader>gf', function()
