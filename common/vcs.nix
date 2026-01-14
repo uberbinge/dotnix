@@ -78,6 +78,9 @@
 
       # Rebase on pull instead of merge
       pull.rebase = true;
+
+      # Default branch name for new repos
+      init.defaultBranch = "main";
     };
   };
 
