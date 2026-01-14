@@ -41,8 +41,19 @@ let
     BORG_PASSPHRASE=${fetch1PasswordSecret { item = "Hetzner Borg Backup Keys"; field = "Passphrase"; }}
     ${validate1PasswordSecret { secretVar = "BORG_PASSPHRASE"; item = "Hetzner Borg Backup Keys"; field = "Passphrase"; }}
 
+    echo "Fetching Telegram credentials from 1Password..."
+    TELEGRAM_BOT_TOKEN=${fetch1PasswordSecret { item = "telegram-bot"; field = "notesPlain"; }}
+    ${validate1PasswordSecret { secretVar = "TELEGRAM_BOT_TOKEN"; item = "telegram-bot"; field = "notesPlain"; }}
+    TELEGRAM_CHAT_ID=${fetch1PasswordSecret { item = "telegram-chat-id"; field = "notesPlain"; }}
+    ${validate1PasswordSecret { secretVar = "TELEGRAM_CHAT_ID"; item = "telegram-chat-id"; field = "notesPlain"; }}
+    echo "Telegram credentials fetched"
+
     # Write .env file for docker-compose
-    echo "BORG_PASSPHRASE=$BORG_PASSPHRASE" > "${serviceConfigDir}/.env"
+    {
+      echo "BORG_PASSPHRASE=$BORG_PASSPHRASE"
+      echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
+      echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID"
+    } > "${serviceConfigDir}/.env"
     chmod 600 "${serviceConfigDir}/.env"
 
     # Copy fresh config templates from nix store and substitute account ID
@@ -114,7 +125,7 @@ let
   # Run backup for a specific service
   borgmaticBackup = pkgs.writeShellApplication {
     name = "borgmatic-backup";
-    runtimeInputs = [ pkgs.docker pkgs._1password-cli ];
+    runtimeInputs = [ pkgs.docker ];
     text = ''
       SERVICE="''${1:-}"
 
@@ -124,14 +135,12 @@ let
         exit 1
       fi
 
-      ${getPassphrase}
-
       if [ "$SERVICE" = "all" ]; then
         echo "Running all backups..."
-        docker exec -e BORG_PASSPHRASE="$BORG_PASSPHRASE" -it borgmatic borgmatic --verbosity 1 --stats --progress
+        docker exec -it borgmatic borgmatic --verbosity 1 --stats --progress
       else
         echo "Running $SERVICE backup..."
-        docker exec -e BORG_PASSPHRASE="$BORG_PASSPHRASE" -it borgmatic borgmatic \
+        docker exec -it borgmatic borgmatic \
           --config "/etc/borgmatic/config.d/$SERVICE.yaml" \
           --verbosity 1 --stats --progress
       fi
@@ -141,7 +150,7 @@ let
   # List archives for a service
   borgmaticList = pkgs.writeShellApplication {
     name = "borgmatic-list";
-    runtimeInputs = [ pkgs.docker pkgs._1password-cli ];
+    runtimeInputs = [ pkgs.docker ];
     text = ''
       SERVICE="''${1:-}"
 
@@ -151,9 +160,7 @@ let
         exit 1
       fi
 
-      ${getPassphrase}
-
-      docker exec -e BORG_PASSPHRASE="$BORG_PASSPHRASE" -it borgmatic borgmatic \
+      docker exec -it borgmatic borgmatic \
         --config "/etc/borgmatic/config.d/$SERVICE.yaml" \
         list
     '';
@@ -162,7 +169,7 @@ let
   # Check/verify backups
   borgmaticCheck = pkgs.writeShellApplication {
     name = "borgmatic-check";
-    runtimeInputs = [ pkgs.docker pkgs._1password-cli ];
+    runtimeInputs = [ pkgs.docker ];
     text = ''
       SERVICE="''${1:-}"
 
@@ -172,14 +179,12 @@ let
         exit 1
       fi
 
-      ${getPassphrase}
-
       if [ "$SERVICE" = "all" ]; then
         echo "Checking all repositories..."
-        docker exec -e BORG_PASSPHRASE="$BORG_PASSPHRASE" -it borgmatic borgmatic check --verbosity 1
+        docker exec -it borgmatic borgmatic check --verbosity 1
       else
         echo "Checking $SERVICE repository..."
-        docker exec -e BORG_PASSPHRASE="$BORG_PASSPHRASE" -it borgmatic borgmatic \
+        docker exec -it borgmatic borgmatic \
           --config "/etc/borgmatic/config.d/$SERVICE.yaml" \
           check --verbosity 1
       fi
@@ -189,7 +194,7 @@ let
   # Info about a repository
   borgmaticInfo = pkgs.writeShellApplication {
     name = "borgmatic-info";
-    runtimeInputs = [ pkgs.docker pkgs._1password-cli ];
+    runtimeInputs = [ pkgs.docker ];
     text = ''
       SERVICE="''${1:-}"
 
@@ -199,9 +204,7 @@ let
         exit 1
       fi
 
-      ${getPassphrase}
-
-      docker exec -e BORG_PASSPHRASE="$BORG_PASSPHRASE" -it borgmatic borgmatic \
+      docker exec -it borgmatic borgmatic \
         --config "/etc/borgmatic/config.d/$SERVICE.yaml" \
         info
     '';
@@ -330,9 +333,11 @@ let
 
   dockerComposeFile = mkDockerComposeYaml "borgmatic" composeConfig;
 
-  # Helper to export BORG env vars from container's init process (cron doesn't inherit Docker env)
+  # Helper to export env vars from container's init process (cron doesn't inherit Docker env)
   exportBorgEnv = ''eval $(cat /proc/1/environ | tr "\\0" "\\n" | grep "^BORG_" | sed "s/^/export /")'';
+  exportTelegramEnv = ''eval $(cat /proc/1/environ | tr "\\0" "\\n" | grep "^TELEGRAM_" | sed "s/^/export /")'';
 
+  # Note: Alpine/BusyBox crontab doesn't use username field
   crontabContent = ''
     # Borgmatic backup schedule - run sequentially to avoid resource conflicts
 
@@ -345,18 +350,147 @@ let
     # Paperless backup - 5 AM daily
     0 5 * * * ${exportBorgEnv}; borgmatic --config /etc/borgmatic/config.d/paperless.yaml --verbosity 1 --stats >> /var/log/borgmatic/paperless-cron.log 2>&1
 
+    # Daily backup status report via Telegram - 9 AM
+    0 9 * * * ${exportTelegramEnv}; /scripts/backup-status.sh >> /var/log/borgmatic/status-report.log 2>&1
+
     # Note: media2tb is a one-time archive - run manually with: borgmatic-backup media2tb
   '';
 
   dockerfileContent = ''
     FROM ghcr.io/borgmatic-collective/borgmatic:1.8
 
+    # Install curl for Telegram notifications
+    RUN apk add --no-cache curl
+
     # Copy crontab file (Alpine uses /etc/crontabs/root)
     COPY crontab /etc/crontabs/root
     RUN chmod 0600 /etc/crontabs/root
 
+    # Copy notification script
+    COPY scripts/backup-status.sh /scripts/backup-status.sh
+    RUN chmod +x /scripts/backup-status.sh
+
     # Create log directory
     RUN mkdir -p /var/log/borgmatic
+  '';
+
+  # Backup status notification script for Telegram
+  backupStatusScript = ''
+    #!/bin/bash
+    # Backup Status Notification Script
+    # Sends daily Telegram report of backup status for all services
+
+    set -e
+
+    # Telegram API function
+    send_telegram() {
+        local message="$1"
+        curl -s -X POST "https://api.telegram.org/bot''${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=''${TELEGRAM_CHAT_ID}" \
+            -d "text=''${message}" \
+            -d "parse_mode=HTML" > /dev/null
+    }
+
+    # Check if backup ran today for a given config
+    check_backup_status() {
+        local config="$1"
+
+        # Get the latest archive info using borgmatic
+        local latest_info=$(borgmatic list --config "$config" --last 1 2>/dev/null | tail -1)
+
+        if [ -z "$latest_info" ]; then
+            echo "FAIL"
+            return
+        fi
+
+        # Extract date from archive line
+        local archive_date=$(echo "$latest_info" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+        local today=$(date +%Y-%m-%d)
+
+        if [ "$archive_date" = "$today" ]; then
+            echo "OK"
+        else
+            echo "STALE:$archive_date"
+        fi
+    }
+
+    # Config paths
+    IMMICH_CONFIG="/etc/borgmatic/config.d/immich.yaml"
+    JELLYFIN_CONFIG="/etc/borgmatic/config.d/jellyfin.yaml"
+    PAPERLESS_CONFIG="/etc/borgmatic/config.d/paperless.yaml"
+
+    # Check each service
+    immich_status=$(check_backup_status "$IMMICH_CONFIG")
+    jellyfin_status=$(check_backup_status "$JELLYFIN_CONFIG")
+    paperless_status=$(check_backup_status "$PAPERLESS_CONFIG")
+
+    # Build status message
+    today=$(date +"%Y-%m-%d")
+    message="<b>Backup Status Report</b>
+    ''${today}
+
+    "
+
+    failures=0
+
+    # Immich status
+    if [ "$immich_status" = "OK" ]; then
+        message+="✅ Immich: OK
+    "
+    elif [[ "$immich_status" == STALE:* ]]; then
+        last_date="''${immich_status#STALE:}"
+        message+="⚠️ Immich: Stale (last: ''${last_date})
+    "
+        ((failures++)) || true
+    else
+        message+="❌ Immich: FAILED
+    "
+        ((failures++)) || true
+    fi
+
+    # Jellyfin status
+    if [ "$jellyfin_status" = "OK" ]; then
+        message+="✅ Jellyfin: OK
+    "
+    elif [[ "$jellyfin_status" == STALE:* ]]; then
+        last_date="''${jellyfin_status#STALE:}"
+        message+="⚠️ Jellyfin: Stale (last: ''${last_date})
+    "
+        ((failures++)) || true
+    else
+        message+="❌ Jellyfin: FAILED
+    "
+        ((failures++)) || true
+    fi
+
+    # Paperless status
+    if [ "$paperless_status" = "OK" ]; then
+        message+="✅ Paperless: OK
+    "
+    elif [[ "$paperless_status" == STALE:* ]]; then
+        last_date="''${paperless_status#STALE:}"
+        message+="⚠️ Paperless: Stale (last: ''${last_date})
+    "
+        ((failures++)) || true
+    else
+        message+="❌ Paperless: FAILED
+    "
+        ((failures++)) || true
+    fi
+
+    # Add summary
+    if [ "$failures" -eq 0 ]; then
+        message+="
+    All backups completed successfully!"
+    else
+        message+="
+    ⚠️ ''${failures} backup(s) need attention"
+    fi
+
+    # Send notification
+    send_telegram "$message"
+
+    echo "[$(date)] Status report sent to Telegram"
   '';
 
 in
@@ -399,7 +533,7 @@ in
   # Note: YAML configs are generated at runtime by borgmatic-start (with secret substitution)
   home.activation.borgmaticWriteFiles = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     echo "Writing borgmatic Docker files..."
-    $DRY_RUN_CMD mkdir -p "${serviceConfigDir}/config.d" "${serviceConfigDir}/ssh" "${serviceConfigDir}/logs"
+    $DRY_RUN_CMD mkdir -p "${serviceConfigDir}/config.d" "${serviceConfigDir}/ssh" "${serviceConfigDir}/logs" "${serviceConfigDir}/scripts"
 
     # Copy docker-compose.yml
     $DRY_RUN_CMD cp -f "${dockerComposeFile}" "${serviceConfigDir}/docker-compose.yml"
@@ -412,6 +546,11 @@ in
     $DRY_RUN_CMD cat > "${serviceConfigDir}/Dockerfile" << 'DOCKERFILE'
     ${dockerfileContent}
     DOCKERFILE
+
+    $DRY_RUN_CMD cat > "${serviceConfigDir}/scripts/backup-status.sh" << 'SCRIPT'
+    ${backupStatusScript}
+    SCRIPT
+    $DRY_RUN_CMD chmod +x "${serviceConfigDir}/scripts/backup-status.sh"
 
     echo "Borgmatic Docker files written"
   '';
