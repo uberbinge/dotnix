@@ -143,6 +143,7 @@
     
     # Additional useful JJ aliases for busy devs
     jf = "jj git fetch";           # Fetch from remote
+    jfr = "jj git fetch && jj rebase -d main";  # Fetch + rebase onto main
     jsh = "jj show";               # Show change details
     jab = "jj abandon";            # Abandon change
     jres = "jj restore";           # Restore files
