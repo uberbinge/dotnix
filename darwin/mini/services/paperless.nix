@@ -38,7 +38,7 @@ let
     services = {
       broker = {
         container_name = "paperless_broker";
-        image = "docker.io/library/redis:7";
+        image = "docker.io/library/redis:8";
         restart = "unless-stopped";
         volumes = [ "redisdata:/data" ];
       };
@@ -72,6 +72,8 @@ let
           PAPERLESS_REDIS = "redis://broker:6379";
           PAPERLESS_DBHOST = "db";
           PAPERLESS_TIME_ZONE = "Europe/Berlin";
+          PAPERLESS_URL = "https://paperless.ti.waqas.dev";
+          PAPERLESS_CSRF_TRUSTED_ORIGINS = "https://paperless.ti.waqas.dev";
           USERMAP_UID = userId;
           USERMAP_GID = groupId;
         };

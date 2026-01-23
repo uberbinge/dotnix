@@ -68,7 +68,7 @@ let
 
       database = {
         container_name = "immich_postgres";
-        image = "ghcr.io/immich-app/postgres:14-vectorchord0.4.2-pgvectors0.2.0";
+        image = "ghcr.io/immich-app/postgres:14-vectorchord0.5.3";
         env_file = [ ".env" ];
         environment = {
           POSTGRES_PASSWORD = "\${DB_PASSWORD}";
