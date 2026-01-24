@@ -9,13 +9,8 @@ let
       [ -f "$CACHE_FILE" ] && rm "$CACHE_FILE"
 
       SEARCH_DIRS=(
-        "$HOME"
         "$HOME/dev"
-        "$HOME/.config"
       )
-
-      # Add work directory if it exists
-      [ -d "$HOME/work" ] && SEARCH_DIRS+=("$HOME/work")
 
       # Temporary file for storing results
       TEMP_FILE=$(mktemp)
@@ -36,7 +31,7 @@ let
               echo "$mtime $subdir" >> "$TEMP_FILE"
               ((found_dirs++)) || true
             fi
-          done < <(find "$dir" -mindepth 1 -maxdepth 1 -type d \
+          done < <(find "$dir" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) \
             ! -name ".*" \
             ! -path "*/Downloads" \
             ! -path "*/Documents" \

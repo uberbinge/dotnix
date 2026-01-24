@@ -208,7 +208,7 @@
         { mode = "n"; key = "<C-l>"; action = "<C-w><C-l>"; options = { desc = "Move focus to the right window"; }; }
         { mode = "n"; key = "<C-j>"; action = "<C-w><C-j>"; options = { desc = "Move focus to the lower window"; }; }
         { mode = "n"; key = "<C-k>"; action = "<C-w><C-k>"; options = { desc = "Move focus to the upper window"; }; }
-        { mode = "n"; key = "<C-x>"; action = "<cmd>silent !tmux neww tmux-sessionizer<CR>"; options.silent = true; }
+        { mode = "n"; key = "<C-f>"; action = "<cmd>silent !tmux neww tmux-sessionizer<CR>"; options.silent = true; }
         { mode = "v"; key = "J"; action = ":m '>+1<CR>gv=gv"; options.silent = true; }
         { mode = "v"; key = "K"; action = ":m '<-2<CR>gv=gv"; options.silent = true; }
         { mode = "n"; key = "<leader><leader><leader><leader><leader><leader>l"; action = "<Plug>NetrwRefresh"; options = { silent = true; noremap = false; }; }

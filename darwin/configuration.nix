@@ -25,7 +25,10 @@
     options = lib.mkDefault "--delete-older-than 7d";
   };
   nix.settings.auto-optimise-store = false;
-  security.pam.services.sudo_local.touchIdAuth = true;
+  security.pam.services.sudo_local = {
+    touchIdAuth = true;
+    watchIdAuth = true;  # Accept sudo prompts from Apple Watch
+  };
 
   # All macOS defaults are now declarative in ./defaults.nix
   # nix-darwin automatically restarts Dock/Finder when their settings change

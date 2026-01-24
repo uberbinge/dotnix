@@ -136,7 +136,7 @@
           zle reset-prompt
         }
         zle -N _tmux_sessionizer_widget
-        bindkey '^X' _tmux_sessionizer_widget
+        bindkey '^F' _tmux_sessionizer_widget
 
         telegram() {
           local bot_token
@@ -277,6 +277,9 @@
       set -g status-right ""
       set -g status-style bg=default,fg=colour105
       set -s focus-event on        # Enable focus events for better integration with vim
+
+      # Sessionizer - Ctrl+f directly (no prefix needed)
+      bind -n C-f run-shell "tmux neww tmux-sessionizer"
     '';
   };
 
