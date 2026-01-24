@@ -131,6 +131,11 @@
         eval "$(mise activate zsh)"
         setopt AUTO_CD
 
+        # Load 1Password service account token for automation (one prompt, then all op reads are silent)
+        if [[ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]]; then
+          export OP_SERVICE_ACCOUNT_TOKEN="$(op read 'op://Private/local-automation-service-account/notesPlain' 2>/dev/null)"
+        fi
+
         _tmux_sessionizer_widget() {
           local selected
           selected=$(tmux-sessionizer --print-only)
@@ -147,8 +152,8 @@
         telegram() {
           local bot_token
           local chat_id
-          bot_token=$(op read "op://Private/telegram-bot/notesPlain" 2>/dev/null)
-          chat_id=$(op read "op://Private/telegram-chat-id/notesPlain" 2>/dev/null)
+          bot_token=$(op read "op://Automation/telegram-bot/notesPlain" 2>/dev/null)
+          chat_id=$(op read "op://Automation/telegram-chat-id/notesPlain" 2>/dev/null)
           if [[ -z "$bot_token" || -z "$chat_id" ]]; then
             echo "❌ Failed to read Telegram credentials from 1Password"
             return 1
@@ -161,7 +166,7 @@
         toDiscordTest() {
           local webhook
           local payload
-          webhook=$(op read "op://Private/discord-test-webhook/notesPlain" 2>/dev/null)
+          webhook=$(op read "op://Automation/discord-test-webhook/notesPlain" 2>/dev/null)
           if [[ -z "$webhook" ]]; then
             echo "❌ Failed to read Discord webhook from 1Password"
             return 1
@@ -282,6 +287,14 @@
       set-option -g clock-mode-style 12
       set -g status-right ""
       set -g status-style bg=default,fg=colour105
+
+      # Vi mode for copy
+      set -g mode-keys vi
+      bind -T copy-mode-vi v send -X begin-selection
+      bind -T copy-mode-vi y send -X copy-pipe-and-cancel "pbcopy"
+
+      # Mouse drag auto-copies to clipboard
+      bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel "pbcopy"
       set -s focus-event on        # Enable focus events for better integration with vim
 
       # Sessionizer - Ctrl+f directly (no prefix needed)

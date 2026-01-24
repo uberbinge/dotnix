@@ -75,6 +75,9 @@
 
       # Automatically setup remote tracking for new branches
       push.autoSetupRemote = true;
+
+      # Default branch for new repos
+      init.defaultBranch = "main";
     };
   };
 

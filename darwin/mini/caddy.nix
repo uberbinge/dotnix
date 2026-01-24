@@ -19,7 +19,7 @@ let
     runtimeInputs = [ pkgs._1password-cli caddyWithCloudflare ];
     text = ''
       # Load Cloudflare API token from 1Password
-      CLOUDFLARE_API_TOKEN="$(op read "op://Private/cloudflare-api-token/credential" 2>/dev/null || echo "")"
+      CLOUDFLARE_API_TOKEN="$(op read "op://Automation/cloudflare-api-token/credential" 2>/dev/null || echo "")"
       export CLOUDFLARE_API_TOKEN
 
       if [ -z "$CLOUDFLARE_API_TOKEN" ]; then

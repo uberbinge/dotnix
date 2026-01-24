@@ -114,25 +114,56 @@ let
         shift
       fi
 
+      # Alias file: format is "alias=/full/path" per line
+      ALIAS_FILE="$HOME/.config/tmux-sessionizer/aliases"
+
+      # Function to resolve alias to real path
+      resolve_alias() {
+        local input="$1"
+        if [[ -f "$ALIAS_FILE" ]]; then
+          while IFS='=' read -r alias_name alias_path; do
+            [[ -z "$alias_name" || "$alias_name" == \#* ]] && continue
+            if [[ "$input" == "$alias_name" ]]; then
+              echo "$alias_path"
+              return 0
+            fi
+          done < "$ALIAS_FILE"
+        fi
+        echo "$input"
+      }
+
       # Handle directory selection
       if [[ $# -eq 1 ]]; then
-        # If a directory is provided as an argument, use it directly
-        selected=$1
+        # If a directory is provided as an argument, resolve alias and use it
+        selected=$(resolve_alias "$1")
       else
         # Otherwise, use fzf to select from the cached directories
         if ! [ -s "$CACHE_FILE" ]; then
           echo "Error: Cache file $CACHE_FILE is empty or does not exist" >&2
           exit 1
         fi
-        # Use fzf for fuzzy finding, showing only the directory name in the list
-        # Use tmux popup if inside tmux, otherwise regular fzf
-        fzf_cmd="fzf --no-sort --delimiter=/ --nth=-1 --with-nth=-1"
-        if [[ -n "''${TMUX:-}" ]]; then
-          fzf_cmd="fzf --tmux --no-sort --delimiter=/ --nth=-1 --with-nth=-1"
+
+        # Build fzf input: aliases first, then cached dirs
+        fzf_input=""
+        if [[ -f "$ALIAS_FILE" ]]; then
+          while IFS='=' read -r alias_name alias_path; do
+            [[ -z "$alias_name" || "$alias_name" == \#* ]] && continue
+            fzf_input+="$alias_name"$'\n'
+          done < "$ALIAS_FILE"
         fi
-        if ! selected=$(cut -d' ' -f2- "$CACHE_FILE" | $fzf_cmd); then
+        fzf_input+=$(cut -d' ' -f2- "$CACHE_FILE")
+
+        # Use fzf for fuzzy finding
+        fzf_cmd="fzf --no-sort"
+        if [[ -n "''${TMUX:-}" ]]; then
+          fzf_cmd="fzf --tmux --no-sort"
+        fi
+        if ! selected=$(echo "$fzf_input" | $fzf_cmd); then
           exit 0  # User cancelled, not an error
         fi
+
+        # Resolve alias if selected
+        selected=$(resolve_alias "$selected")
       fi
 
       # Exit if no directory was selected
