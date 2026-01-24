@@ -132,8 +132,14 @@
         setopt AUTO_CD
 
         _tmux_sessionizer_widget() {
-          tmux-sessionizer
-          zle reset-prompt
+          local selected
+          selected=$(tmux-sessionizer --print-only)
+          if [[ -n "$selected" ]]; then
+            BUFFER="tmux-sessionizer '$selected'"
+            zle accept-line
+          else
+            zle reset-prompt
+          fi
         }
         zle -N _tmux_sessionizer_widget
         bindkey '^F' _tmux_sessionizer_widget

@@ -107,6 +107,13 @@ let
         }
       fi
 
+      # Check for --print-only flag
+      print_only=false
+      if [[ "''${1:-}" == "--print-only" ]]; then
+        print_only=true
+        shift
+      fi
+
       # Handle directory selection
       if [[ $# -eq 1 ]]; then
         # If a directory is provided as an argument, use it directly
@@ -118,14 +125,24 @@ let
           exit 1
         fi
         # Use fzf for fuzzy finding, showing only the directory name in the list
-        if ! selected=$(cut -d' ' -f2- "$CACHE_FILE" | fzf --tmux --no-sort --delimiter="/" --nth=-1 --with-nth=-1); then
-          echo "Error: No directory selected or cache file is invalid" >&2
-          exit 1
+        # Use tmux popup if inside tmux, otherwise regular fzf
+        fzf_cmd="fzf --no-sort --delimiter=/ --nth=-1 --with-nth=-1"
+        if [[ -n "''${TMUX:-}" ]]; then
+          fzf_cmd="fzf --tmux --no-sort --delimiter=/ --nth=-1 --with-nth=-1"
+        fi
+        if ! selected=$(cut -d' ' -f2- "$CACHE_FILE" | $fzf_cmd); then
+          exit 0  # User cancelled, not an error
         fi
       fi
 
       # Exit if no directory was selected
       if [[ -z "$selected" ]]; then
+        exit 0
+      fi
+
+      # If --print-only, just print the selected path and exit
+      if [[ "$print_only" == true ]]; then
+        echo "$selected"
         exit 0
       fi
 
