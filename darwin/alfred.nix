@@ -33,10 +33,15 @@ in
     mkdir -p "$HOME/.config/alfred"
 
     if command -v op >/dev/null 2>&1; then
-      echo "Generating Alfred sites from 1Password work-urls..."
-      
-      # Get work URLs directly from 1Password JSON structure
-      work_data=$(op item get work-urls --account=my.1password.eu --format=json 2>/dev/null)
+      # Check if already authenticated (skip if not to avoid prompts during rebuild)
+      if ! op account list --account=my.1password.eu >/dev/null 2>&1; then
+        echo '${builtins.toJSON personalSites}' > "$sites_file"
+        echo "1Password not authenticated, using personal sites only (run 'op signin' to enable work sites)"
+      else
+        echo "Generating Alfred sites from 1Password work-urls..."
+
+        # Get work URLs directly from 1Password JSON structure
+        work_data=$(op item get work-urls --account=my.1password.eu --format=json 2>/dev/null)
       
       if [ -n "$work_data" ]; then
         # Extract work sites using jq and combine with personal sites
@@ -57,6 +62,7 @@ in
         # Fallback to personal sites only
         echo '${builtins.toJSON personalSites}' > "$sites_file"
         echo "Using personal sites only (work-urls not found)"
+      fi
       fi
     else
       # Fallback to personal sites only
