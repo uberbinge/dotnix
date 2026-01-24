@@ -131,11 +131,6 @@
         eval "$(mise activate zsh)"
         setopt AUTO_CD
 
-        # Load 1Password service account token for automation (one prompt, then all op reads are silent)
-        if [[ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]]; then
-          export OP_SERVICE_ACCOUNT_TOKEN="$(op read 'op://Private/local-automation-service-account/notesPlain' 2>/dev/null)"
-        fi
-
         _tmux_sessionizer_widget() {
           local selected
           selected=$(tmux-sessionizer --print-only)
