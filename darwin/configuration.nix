@@ -27,7 +27,8 @@
   nix.settings.auto-optimise-store = false;
   security.pam.services.sudo_local = {
     touchIdAuth = true;
-    watchIdAuth = true;  # Accept sudo prompts from Apple Watch
+    watchIdAuth = true;   # Accept sudo prompts from Apple Watch
+    reattach = true;      # Enable Touch ID in tmux sessions
   };
 
   # All macOS defaults are now declarative in ./defaults.nix
