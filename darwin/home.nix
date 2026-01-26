@@ -54,8 +54,8 @@
     theme = Catppuccin Mocha
 
     # Font configuration
-    font-family = FiraCode Nerd Font Mono
-    font-size = 15
+    font-family = Roboto Mono
+    font-size = 11
 
     # Save window state and layouts
     window-save-state = always
