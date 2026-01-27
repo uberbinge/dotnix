@@ -290,6 +290,11 @@
 
       # Mouse drag auto-copies to clipboard
       bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel "pbcopy"
+
+      # Natural scrolling (match macOS behavior)
+      bind -T copy-mode-vi WheelUpPane send -X scroll-down
+      bind -T copy-mode-vi WheelDownPane send -X scroll-up
+
       set -s focus-event on        # Enable focus events for better integration with vim
 
       # Sessionizer - Ctrl+f directly (no prefix needed)
