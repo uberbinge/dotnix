@@ -297,6 +297,10 @@
 
       set -s focus-event on        # Enable focus events for better integration with vim
 
+      # Enable clickable links (OSC 8 hyperlinks)
+      set -ga terminal-features "*:hyperlinks"
+      set -g allow-passthrough on
+
       # Sessionizer - Ctrl+f directly (no prefix needed)
       bind -n C-f run-shell "tmux neww tmux-sessionizer"
     '';
