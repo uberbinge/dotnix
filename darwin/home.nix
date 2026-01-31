@@ -75,15 +75,13 @@
       run /usr/bin/killall Dock || true
     '';
 
-    # Install Ghostty terminfo for SSH sessions (needed on machines SSHed into)
+    # Install Ghostty terminfo for SSH sessions
     installGhosttyTerminfo = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      if [ "$(whoami)" = "waqas" ]; then
-        GHOSTTY_TERMINFO="/Applications/Ghostty.app/Contents/Resources/terminfo"
-        if [ -d "$GHOSTTY_TERMINFO" ]; then
-          verboseEcho "Installing Ghostty terminfo..."
-          mkdir -p "$HOME/.terminfo"
-          cp -r "$GHOSTTY_TERMINFO"/* "$HOME/.terminfo/" 2>/dev/null || true
-        fi
+      GHOSTTY_TERMINFO="/Applications/Ghostty.app/Contents/Resources/terminfo"
+      if [ -d "$GHOSTTY_TERMINFO" ]; then
+        verboseEcho "Installing Ghostty terminfo..."
+        mkdir -p "$HOME/.terminfo"
+        cp -r "$GHOSTTY_TERMINFO"/* "$HOME/.terminfo/" 2>/dev/null || true
       fi
     '';
   };
