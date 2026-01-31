@@ -9,6 +9,7 @@ in
   imports = [
     ./options.nix
     ./services/home-assistant.nix
+    ./services/health-server.nix
     ./services/immich.nix
     ./services/jellyfin.nix
     ./services/paperless.nix
