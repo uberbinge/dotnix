@@ -12,7 +12,7 @@
 
     sessionVariables = {
       EDITOR = "nvim";
-      HEALTH_SERVER_URL = "http://mini.yak-antares.ts.net:8080";
+      HEALTH_SERVER_URL = "http://mini.yak-antares.ts.net:9876";
     };
 
     packages = with pkgs; [
