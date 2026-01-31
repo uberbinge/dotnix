@@ -55,7 +55,7 @@
 
     # Font configuration
     font-family = Roboto Mono
-    font-size = 11
+    font-size = 12
 
     # Save window state and layouts
     window-save-state = always
