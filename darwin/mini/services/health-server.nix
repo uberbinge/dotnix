@@ -1,5 +1,6 @@
 # darwin/mini/services/health-server.nix
 # Health Export Server - Go binary syncing Apple HealthKit data
+# Usage: cd ~/dev/health-export/health-server && just deploy
 { config, pkgs, lib, ... }:
 
 let
@@ -26,49 +27,4 @@ in
       StandardErrorPath = logFile;
     };
   };
-
-  # Helper scripts
-  home.packages = [
-    (pkgs.writeShellApplication {
-      name = "health-server-status";
-      runtimeInputs = [ pkgs.curl pkgs.jq ];
-      text = ''
-        echo "=== Service Status ==="
-        launchctl list | grep health-server || echo "Not running"
-        echo ""
-        echo "=== Health Check ==="
-        curl -s http://localhost:8080/health | jq . || echo "Server not responding"
-      '';
-    })
-
-    (pkgs.writeShellApplication {
-      name = "health-server-logs";
-      text = ''
-        tail -f "${logFile}"
-      '';
-    })
-
-    (pkgs.writeShellApplication {
-      name = "health-server-restart";
-      text = ''
-        echo "Restarting health-server..."
-        launchctl stop dev.waqas.health-server 2>/dev/null || true
-        launchctl start dev.waqas.health-server
-        echo "Done"
-      '';
-    })
-
-    (pkgs.writeShellApplication {
-      name = "health-server-rebuild";
-      runtimeInputs = [ pkgs.go pkgs.just ];
-      text = ''
-        echo "Rebuilding health-server..."
-        cd "${serverDir}"
-        just build
-        launchctl stop dev.waqas.health-server 2>/dev/null || true
-        launchctl start dev.waqas.health-server
-        echo "Done"
-      '';
-    })
-  ];
 }
