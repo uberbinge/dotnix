@@ -27,7 +27,7 @@
   nix.settings.auto-optimise-store = false;
   security.pam.services.sudo_local = {
     touchIdAuth = true;
-    watchIdAuth = true;   # Accept sudo prompts from Apple Watch
+    watchIdAuth = false;  # Disabled - Swift build fails on nixpkgs
     reattach = true;      # Enable Touch ID in tmux sessions
   };
 
