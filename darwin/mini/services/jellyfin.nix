@@ -1,69 +1,128 @@
 # darwin/mini/services/jellyfin.nix
-# Jellyfin media server - Docker Compose with launchd auto-start
+# Jellyfin media server - Native macOS app with launchd auto-start
 { config, pkgs, lib, username, ... }:
 
 let
   miniLib = import ../lib.nix { inherit config pkgs lib; };
-  inherit (miniLib) mediaVolume userId groupId mkDockerComposeScripts mkLaunchdService mkDockerComposeYaml;
+  inherit (miniLib) mediaVolume;
 
-  cfg = config.services.mediaServer;
-  serviceConfigDir = "${cfg.configDir}/jellyfin";
+  # Paths
+  jellyfinApp = "/Applications/Jellyfin.app";
+  jellyfinBin = "${jellyfinApp}/Contents/MacOS/jellyfin";
+  jellyfinWeb = "${jellyfinApp}/Contents/Resources/jellyfin-web";
+  jellyfinFfmpeg = "${jellyfinApp}/Contents/MacOS/ffmpeg";
 
-  scripts = mkDockerComposeScripts {
-    serviceName = "jellyfin";
-    inherit serviceConfigDir;
-    # No extra env setup needed - Jellyfin doesn't use 1Password secrets
+  dataDir = "${mediaVolume}/jellyfin/config";
+  cacheDir = "${mediaVolume}/jellyfin/cache";
+  logDir = "${config.home.homeDirectory}/.local/share/jellyfin/logs";
+
+  # Management scripts
+  jellyfinStart = pkgs.writeShellApplication {
+    name = "jellyfin-start";
+    text = ''
+      echo "Starting Jellyfin..."
+      launchctl start com.jellyfin.server || launchctl load ~/Library/LaunchAgents/com.jellyfin.server.plist
+      echo "Jellyfin started. Access at http://localhost:8096"
+    '';
   };
 
-  # Docker Compose configuration as structured Nix
-  composeConfig = {
-    name = "jellyfin";
-    services.jellyfin = {
-      container_name = "jellyfin";
-      image = "jellyfin/jellyfin:latest";
-      user = "${userId}:${groupId}";
-      volumes = [
-        "${mediaVolume}/jellyfin/config:/config"
-        "${mediaVolume}/jellyfin/cache:/cache"
-        "${mediaVolume}/jellyfin/jellyfin-library:/media/library:ro"
-        "${mediaVolume}/jellyfin/jellyfin-books:/media/books:ro"
-      ];
-      ports = [
-        "8096:8096"
-        "8920:8920"
-        "7359:7359/udp"
-      ];
-      restart = "unless-stopped";
-      environment = {
-        TZ = "Europe/Berlin";
-        JELLYFIN_PublishedServerUrl = "http://mini.local:8096";
-      };
-      healthcheck = {
-        test = "curl -f http://localhost:8096/health || exit 1";
-        interval = "30s";
-        timeout = "10s";
-        retries = 3;
-      };
-    };
+  jellyfinStop = pkgs.writeShellApplication {
+    name = "jellyfin-stop";
+    text = ''
+      echo "Stopping Jellyfin..."
+      launchctl stop com.jellyfin.server || true
+      pkill -f "Jellyfin.app" || true
+      echo "Jellyfin stopped."
+    '';
   };
+
+  jellyfinRestart = pkgs.writeShellApplication {
+    name = "jellyfin-restart";
+    text = ''
+      echo "Restarting Jellyfin..."
+      launchctl stop com.jellyfin.server || true
+      sleep 2
+      launchctl start com.jellyfin.server
+      echo "Jellyfin restarted."
+    '';
+  };
+
+  jellyfinStatus = pkgs.writeShellApplication {
+    name = "jellyfin-status";
+    runtimeInputs = [ pkgs.curl ];
+    text = ''
+      if pgrep -f "Jellyfin.app" > /dev/null; then
+        echo "Jellyfin is running"
+        if curl -sf http://localhost:8096/health > /dev/null 2>&1; then
+          echo "Health check: OK"
+        else
+          echo "Health check: FAILED (service starting or unhealthy)"
+        fi
+      else
+        echo "Jellyfin is not running"
+      fi
+    '';
+  };
+
+  jellyfinLogs = pkgs.writeShellApplication {
+    name = "jellyfin-logs";
+    text = ''
+      LOG_FILE="${logDir}/jellyfin.log"
+      if [ -f "$LOG_FILE" ]; then
+        tail -f "$LOG_FILE"
+      else
+        echo "No log file found at $LOG_FILE"
+        echo "Check launchd logs: log show --predicate 'subsystem == \"com.jellyfin.server\"' --last 1h"
+      fi
+    '';
+  };
+
+  jellyfinUpdate = pkgs.writeShellApplication {
+    name = "jellyfin-update";
+    text = ''
+      echo "Updating Jellyfin..."
+      ${jellyfinStop}/bin/jellyfin-stop
+      brew upgrade --cask jellyfin || brew reinstall --cask jellyfin
+      ${jellyfinStart}/bin/jellyfin-start
+      echo "Jellyfin updated."
+    '';
+  };
+
 in
 {
-  home.packages = scripts.scripts;
+  home.packages = [
+    jellyfinStart
+    jellyfinStop
+    jellyfinRestart
+    jellyfinStatus
+    jellyfinLogs
+    jellyfinUpdate
+  ];
 
-  # Create config directory
-  home.file."${serviceConfigDir}/.keep".text = "";
-
-  # Docker Compose configuration - generated from structured Nix
-  home.file."${serviceConfigDir}/docker-compose.yml".source =
-    mkDockerComposeYaml "jellyfin" composeConfig;
+  # Create required directories
+  home.file."${logDir}/.keep".text = "";
 
   # launchd service for auto-start
-  launchd.agents.jellyfin = mkLaunchdService {
-    serviceName = "jellyfin";
-    startScript = scripts.start;
-    inherit serviceConfigDir;
+  launchd.agents.jellyfin = {
+    enable = true;
+    config = {
+      Label = "com.jellyfin.server";
+      ProgramArguments = [
+        jellyfinBin
+        "--datadir" dataDir
+        "--cachedir" cacheDir
+        "--webdir" jellyfinWeb
+        "--ffmpeg" jellyfinFfmpeg
+      ];
+      RunAtLoad = true;
+      KeepAlive = true;
+      WorkingDirectory = dataDir;
+      EnvironmentVariables = {
+        HOME = config.home.homeDirectory;
+        TZ = "Europe/Berlin";
+      };
+      StandardOutPath = "${logDir}/jellyfin.log";
+      StandardErrorPath = "${logDir}/jellyfin.log";
+    };
   };
-
-  # Create log directory
-  home.file."${config.home.homeDirectory}/.local/share/jellyfin/.keep".text = "";
 }

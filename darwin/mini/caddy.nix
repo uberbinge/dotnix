@@ -68,8 +68,17 @@ in
 
     # Jellyfin - Media server
     jelly.ti.waqas.dev {
-      reverse_proxy http://localhost:8096
       import cloudflare
+
+      reverse_proxy http://localhost:8096 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+        transport http {
+          read_buffer 8192
+        }
+      }
     }
 
     # Paperless - Document management
