@@ -12,6 +12,15 @@
       # Document processing
       "pandoc"
       "gnupg"
+
+      # Development tools
+      "firebase-cli"
+      "supabase"
+      "anomalyco/tap/opencode"
+    ];
+
+    taps = [
+      "anomalyco/tap"
     ];
 
     casks = [
@@ -48,6 +57,7 @@
       "android-platform-tools"
       "figma"
       "miro"
+      "opencode-desktop"
     ];
   };
 }

@@ -250,6 +250,7 @@
     enable = true;
     keyMode = "vi";
     mouse = true;
+    terminal = "tmux-256color";
     plugins = with pkgs.tmuxPlugins; [ vim-tmux-navigator ];
     escapeTime = 0;
     historyLimit = 15000;
@@ -283,6 +284,7 @@
       set-option -g clock-mode-style 12
       set -g status-right ""
       set -g status-style bg=default,fg=colour105
+      set -g mode-style bg=colour105,fg=black
 
       # Vi mode for copy
       set -g mode-keys vi
@@ -301,6 +303,9 @@
       # Enable clickable links (OSC 8 hyperlinks)
       set -ga terminal-features "*:hyperlinks"
       set -g allow-passthrough on
+
+      # Enable 24-bit true color passthrough for Ghostty
+      set -ga terminal-overrides ",ghostty:RGB"
 
       # Sessionizer - Ctrl+f directly (no prefix needed)
       bind -n C-f run-shell "tmux neww tmux-sessionizer"
