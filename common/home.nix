@@ -30,6 +30,14 @@
       jsonnet
       ncspot
       deno
+      bun
+      aws-sso-cli
+      cargo-lambda
+      git-lfs
+      gofumpt
+      grpcurl
+      opentofu
+      yq-go
 
       # Container wrapper scripts using writeShellApplication
       (writeShellApplication {
@@ -311,6 +319,16 @@
       bind -n C-f run-shell "tmux neww tmux-sessionizer"
     '';
   };
+
+  # Package manager security: minimum release age for new packages
+  home.file.".config/uv/uv.toml".text = ''
+    exclude-newer = "7 days"
+  '';
+
+  home.file.".bunfig.toml".text = ''
+    [install]
+    minimumReleaseAge = 604800
+  '';
 
   # Configure IdeaVim for JetBrains IDEs
   home.file.".ideavimrc".text = ''

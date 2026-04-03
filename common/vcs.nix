@@ -3,6 +3,7 @@
   # Git configuration
   programs.git = {
     enable = true;
+    signing.format = "ssh";
     ignores = [
       ".DS_Store"
       ".mise.toml"

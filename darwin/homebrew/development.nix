@@ -12,20 +12,16 @@
       "mise"
 
       # AWS
-      "aws-sso-cli"
       "awscli"
       "awscurl"
 
       # Go tools
       "golangci-lint"
-      "gofumpt"
 
       # Infrastructure & policy
-      "opentofu"
       "conftest"
       "opa"
       "regal"
-      "yq"
 
       # Database
       "sqlite"
@@ -40,11 +36,11 @@
       "orbstack"
 
       # Editors
-      "cursor"
       "visual-studio-code"
 
       # AI
       "codex"
+      "kitlangton-hex"
     ];
   };
 }

@@ -9,7 +9,11 @@ let
     inherit title arg;
     icon = "${homeDir}/${iconPath}${icon}";
   };
-  
+  mkTemplate = prefix: template: icon: {
+    inherit prefix template;
+    icon = "${homeDir}/${iconPath}${icon}";
+  };
+
   # Personal and public sites (safe for public repo)
   personalSites = [
     (mkSite "gemini" "https://gemini.google.com/app" braveIcon)
@@ -20,6 +24,10 @@ let
     (mkSite "amazon send to kindle" "https://www.amazon.de/sendtokindle" braveIcon)
     (mkSite "amazon kindle library" "https://www.amazon.de/hz/mycd/digital-console/contentlist/pdocs/dateDsc/" braveIcon)
     (mkSite "reviews" "https://github.com/pulls/review-requested" braveIcon)
+
+    # URL templates — "o mg some-repo" → https://github.com/moia-dev/some-repo/pulls
+    (mkTemplate "mg" "https://github.com/moia-dev/{}/pulls" braveIcon)
+    (mkTemplate "gh" "https://github.com/{}" braveIcon)
   ];
   
   # Work sites - dynamically generated from 1Password at activation time

@@ -7,7 +7,6 @@
       # Build & deployment
       "just"
       "helm"
-      "scrcpy"
 
       # Document processing
       "pandoc"
@@ -26,13 +25,8 @@
     casks = [
       # Productivity (work-specific)
       "caffeine"
-      "raycast"
       "lunar"
-      "jordanbaird-ice"
-      "beeper"
-
       # Virtualization & enterprise
-      "parallels"
       "jetbrains-toolbox"
 
       # Communication (work requires these)
@@ -40,7 +34,6 @@
       "slack"
       "telegram"
       "signal"
-      "whatsapp"
       "microsoft-teams"
       "microsoft-outlook"
 
@@ -57,7 +50,6 @@
       "android-platform-tools"
       "figma"
       "miro"
-      "opencode-desktop"
     ];
   };
 }

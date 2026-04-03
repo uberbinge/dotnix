@@ -287,6 +287,7 @@ let
       "/sources/jellyfin/config"
       "/sources/jellyfin/jellyfin-books"
       "/sources/jellyfin/jellyfin-library"
+      "/sources/jellyfin/us"
     ];
     excludePatterns = [
       "**/.DS_Store"

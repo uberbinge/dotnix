@@ -44,6 +44,11 @@
     jjui
   ];
 
+  # Package manager security: minimum release age (macOS-specific path)
+  home.file."Library/Preferences/pnpm/rc".text = ''
+    minimum-release-age=10080
+  '';
+
   home.file.".local/share/mise/config.toml".text = ''
     idiomatic_version_file_enable_tools = []
   '';

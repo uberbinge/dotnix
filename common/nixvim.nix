@@ -193,7 +193,7 @@
         scrolloff = 10;
       };
       extraPackages = with pkgs; [
-        nodePackages.typescript-language-server
+        typescript-language-server
         lua-language-server
         gopls
         stylua
