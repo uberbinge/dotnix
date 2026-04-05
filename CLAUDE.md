@@ -201,7 +201,7 @@ op read "op://Private/test-item/password"
 ### Rebuild fails with "file not found"
 ```bash
 # Nix flakes only see committed files
-git add .
+jj file track .
 sudo darwin-rebuild switch --flake ~/dev/dotnix#<machine>
 ```
 

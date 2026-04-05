@@ -56,7 +56,7 @@
   # Ghostty terminal configuration (installed via Homebrew)
   home.file.".config/ghostty/config".text = ''
     # Dark theme only
-    theme = Catppuccin Mocha
+    theme = Espresso
 
     # Font configuration
     font-family = Roboto Mono

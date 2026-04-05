@@ -29,6 +29,7 @@
       # AI tools
       "gemini-cli"
       "charmbracelet/tap/crush"
+      "charmbracelet/tap/glow"
     ];
 
     casks = [

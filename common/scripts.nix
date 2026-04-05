@@ -179,20 +179,12 @@ let
 
       # Create a valid tmux session name from the directory name
       selected_name=$(basename "$selected" | tr . _)
-      tmux_running=$(pgrep tmux || true)
 
-      # If tmux isn't running, start a new session
-      if [[ -z "''${TMUX:-}" ]] && [[ -z "$tmux_running" ]]; then
-        tmux new-session -s "$selected_name" -c "$selected"
-        exit 0
-      fi
-
-      # Create the session if it doesn't exist
+      # Create session if it doesn't exist
       if ! tmux has-session -t="$selected_name" 2> /dev/null; then
         tmux new-session -ds "$selected_name" -c "$selected"
       fi
 
-      # Attach to the session or switch to it if already in tmux
       if [[ -z "''${TMUX:-}" ]]; then
         tmux attach-session -t "$selected_name"
       else
