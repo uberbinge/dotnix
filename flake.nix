@@ -32,11 +32,12 @@
       # Using builtins.getEnv is impure and breaks flake reproducibility
       usernames = {
         work = "waqas.ahmed";
+        macbook = "waqas";
         mini = "waqas";
         linux = "waqas.ahmed";
       };
 
-      mkConfiguration = { system, username, hostname ? null, isNixOS ? false, extraDarwinModules ? [], extraHomeModules ? [] }:
+      mkConfiguration = { system, username, hostname ? null, isNixOS ? false, extraDarwinModules ? [ ], extraHomeModules ? [ ] }:
         let
           pkgs = import nixpkgs { inherit system; };
           specialArgs = inputs // {
@@ -72,8 +73,9 @@
           };
 
         in
-          if isNixOS then
-            nixpkgs.lib.nixosSystem {
+        if isNixOS then
+          nixpkgs.lib.nixosSystem
+            {
               inherit system specialArgs;
               modules = [
                 ./linux/configuration.nix
@@ -87,8 +89,9 @@
                 nixosModules
               ];
             }
-          else if system == "aarch64-darwin" then
-            nix-darwin.lib.darwinSystem {
+        else if system == "aarch64-darwin" then
+          nix-darwin.lib.darwinSystem
+            {
               inherit system specialArgs;
               modules = [
                 ./darwin/configuration.nix
@@ -104,15 +107,15 @@
                 darwinModules
               ] ++ extraDarwinModules;
             }
-          else
-            home-manager.lib.homeManagerConfiguration {
-              inherit pkgs;
-              extraSpecialArgs = specialArgs;
-              modules = [
-                mkCommonHomeConfig
-                ./linux/home.nix
-              ];
-            };
+        else
+          home-manager.lib.homeManagerConfiguration {
+            inherit pkgs;
+            extraSpecialArgs = specialArgs;
+            modules = [
+              mkCommonHomeConfig
+              ./linux/home.nix
+            ];
+          };
 
     in
     {
@@ -125,7 +128,17 @@
           username = usernames.work;
           hostname = "work";
           extraDarwinModules = [ ./darwin/work/homebrew.nix ];
-          extraHomeModules = [];
+          extraHomeModules = [ ./darwin/work/home.nix ];
+        };
+
+        # Personal MacBook configuration using the shorter local username.
+        # Usage: darwin-rebuild switch --flake .#macbook
+        macbook = mkConfiguration {
+          system = "aarch64-darwin";
+          username = usernames.macbook;
+          hostname = "macbook";
+          extraDarwinModules = [ ./darwin/work/homebrew.nix ];
+          extraHomeModules = [ ./darwin/work/home.nix ];
         };
 
         # Mac Mini media server configuration
@@ -176,10 +189,11 @@
         let pkgs = import nixpkgs { inherit system; };
         in {
           # Check that all Nix files are properly formatted
-          format = pkgs.runCommand "check-format" {
-            buildInputs = [ pkgs.nixpkgs-fmt ];
-            src = ./.;
-          } ''
+          format = pkgs.runCommand "check-format"
+            {
+              buildInputs = [ pkgs.nixpkgs-fmt ];
+              src = ./.;
+            } ''
             cd $src
             nixpkgs-fmt --check .
             touch $out

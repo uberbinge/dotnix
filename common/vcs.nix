@@ -9,6 +9,7 @@
       ".mise.toml"
       "mise.toml"
       ".zed"
+      ".pers"
       "# Claude Code settings"
       ".claude/settings.local.json"
       "git_ignored*"
@@ -56,15 +57,16 @@
 
       # Delta configuration for better diff visualization
       delta = {
-        navigate = true;           # Enable navigation between diff sections
-        light = false;             # Use dark mode
+        navigate = true; # Enable navigation between diff sections
+        light = false; # Use dark mode
         features = "line-numbers decorations";
         syntax-theme = "Monokai Extended Bright";
       };
 
       # SSH signing configuration with 1Password
       gpg.format = "ssh";
-      "gpg \"ssh\"".program = if pkgs.stdenv.isDarwin
+      "gpg \"ssh\"".program =
+        if pkgs.stdenv.isDarwin
         then "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
         else "${pkgs._1password-gui}/bin/op-ssh-sign";
       commit.gpgsign = true;
@@ -142,42 +144,42 @@
     jr = "jj rebase";
     jsq = "jj squash";
     jb = "jj bookmark";
-    jgi = "jj git import";  # Rare but useful for collaboration
-    ji = "jj git import";   # Short alias for git import
-    
+    jgi = "jj git import"; # Rare but useful for collaboration
+    ji = "jj git import"; # Short alias for git import
+
     # Additional useful JJ aliases for busy devs
-    jf = "jj git fetch";           # Fetch from remote
-    jfr = "jj git fetch && jj rebase -d main";  # Fetch + rebase onto main
-    jsh = "jj show";               # Show change details
-    jab = "jj abandon";            # Abandon change
-    jres = "jj restore";           # Restore files
-    jdup = "jj duplicate";         # Duplicate change
-    jspl = "jj split";             # Split change
-    
+    jf = "jj git fetch"; # Fetch from remote
+    jfr = "jj git fetch && jj rebase -d main"; # Fetch + rebase onto main
+    jsh = "jj show"; # Show change details
+    jab = "jj abandon"; # Abandon change
+    jres = "jj restore"; # Restore files
+    jdup = "jj duplicate"; # Duplicate change
+    jspl = "jj split"; # Split change
+
     # Operation log and undo (essential for busy devs!)
-    jop = "jj operation log";      # Show operation history
-    jun = "jj operation revert";   # Undo last operation (formerly 'undo')
-    jor = "jj operation restore";  # Restore to specific operation
-    
+    jop = "jj operation log"; # Show operation history
+    jun = "jj operation revert"; # Undo last operation (formerly 'undo')
+    jor = "jj operation restore"; # Restore to specific operation
+
     # Bookmark management (branches)
-    jbc = "jj bookmark create";    # Create bookmark
-    jbm = "jj bookmark move";      # Move bookmark  
-    jbd = "jj bookmark delete";    # Delete bookmark
-    jbt = "jj bookmark track";     # Track remote bookmark
-    
+    jbc = "jj bookmark create"; # Create bookmark
+    jbm = "jj bookmark move"; # Move bookmark  
+    jbd = "jj bookmark delete"; # Delete bookmark
+    jbt = "jj bookmark track"; # Track remote bookmark
+
     # Rebase operations
-    jrb = "jj rebase --branch";    # Rebase branch to destination
-    jrs = "jj rebase --source";    # Rebase from source to destination  
-    
+    jrb = "jj rebase --branch"; # Rebase branch to destination
+    jrs = "jj rebase --source"; # Rebase from source to destination  
+
     # Navigation and insertion
-    jna = "jj new -A";             # New revision after (insert)
-    jnb = "jj new -B";             # New revision before (insert)
-    
+    jna = "jj new -A"; # New revision after (insert)
+    jnb = "jj new -B"; # New revision before (insert)
+
     # Quick log views with revsets (from blog)
-    jlm = "jj log -r '::main'";        # Everything on main branch
+    jlm = "jj log -r '::main'"; # Everything on main branch
     jlme = "jj log -r '::main | ::@'"; # Main branch + current path  
-    jlmine = "jj log -r 'mine()'";     # All your authored revisions
-    jlall = "jj log -r '..'";          # Everything
+    jlmine = "jj log -r 'mine()'"; # All your authored revisions
+    jlall = "jj log -r '..'"; # Everything
   };
 
   # JJ workflow functions - comprehensive workflow for busy developers

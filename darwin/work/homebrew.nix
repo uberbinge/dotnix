@@ -3,25 +3,6 @@
 { ... }:
 {
   homebrew = {
-    brews = [
-      # Build & deployment
-      "just"
-      "helm"
-
-      # Document processing
-      "pandoc"
-      "gnupg"
-
-      # Development tools
-      "firebase-cli"
-      "supabase"
-      "anomalyco/tap/opencode"
-    ];
-
-    taps = [
-      "anomalyco/tap"
-    ];
-
     casks = [
       # Productivity (work-specific)
       "caffeine"

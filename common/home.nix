@@ -22,6 +22,7 @@
       gnused
 
       # Development tools
+      mise
       lazygit
       delta
       fd
@@ -204,9 +205,6 @@
         gl = "git pull";
         c = "clear";
         zshconfig = "nvim ~/.zshrc";
-        ohmyzsh = "nvim ~/.config/oh-my-zsh";
-        gw = "./gradlew";
-        yi = "yarn install";
         nm = "nvim";
         vim = "nvim";
         v = "nvim";
@@ -312,8 +310,9 @@
       set -ga terminal-features "*:hyperlinks"
       set -g allow-passthrough on
 
-      # Enable 24-bit true color passthrough for Ghostty
+      # Enable 24-bit true color and background detection passthrough for Ghostty
       set -ga terminal-overrides ",ghostty:RGB"
+      set -ga terminal-features ",ghostty:osc11"
 
       # Sessionizer - Ctrl+f directly (no prefix needed)
       bind -n C-f run-shell "tmux neww tmux-sessionizer"

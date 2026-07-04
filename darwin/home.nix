@@ -2,10 +2,6 @@
 {
   home.homeDirectory = "/Users/${username}";
 
-  home.sessionVariables = {
-    PATH = "/opt/homebrew/bin:$PATH";
-  };
-
   # macOS-specific shell configuration
   programs.zsh.initContent = lib.mkAfter ''
     # 1Password SSH Agent override (macOS sets SSH_AUTH_SOCK by default)
@@ -26,12 +22,35 @@
   ];
 
   home.packages = with pkgs; [
-    # Simple homebrew update script using writeShellApplication
+    # Darwin user-scoped CLI tools. These used to be Homebrew formulae, but do
+    # not need to be installed machine-wide on a shared Mac.
+    _1password-cli
+    awscli2
+    golangci-lint
+    conftest
+    open-policy-agent
+    regal
+    sqlite
+    gemini-cli
+    crush
+    glow
+
+    # awscurl is still installed by Homebrew, but expose it through the user's
+    # Home Manager profile so /opt/homebrew/bin does not need to be on PATH.
+    (writeShellApplication {
+      name = "awscurl";
+      text = ''
+        exec /opt/homebrew/bin/awscurl "$@"
+      '';
+    })
+
+    # Shared Homebrew app updater. Homebrew remains only for GUI/system apps
+    # and Brew-only formulae.
     (writeShellApplication {
       name = "update-homebrew-apps";
-      runtimeInputs = [ ];  # brew is in /opt/homebrew/bin via PATH
+      runtimeInputs = [ ];
       text = ''
-        echo "Updating all Homebrew casks and formulae..."
+        echo "Updating shared Homebrew apps and Brew-only formulae..."
         /opt/homebrew/bin/brew update
         /opt/homebrew/bin/brew upgrade
         echo "All apps updated!"
@@ -56,7 +75,7 @@
   # Ghostty terminal configuration (installed via Homebrew)
   home.file.".config/ghostty/config".text = ''
     # Dark theme only
-    theme = dark:Espresso,light:Catppuccin Latte
+    theme = dark:Espresso,light:Gruvbox Material Light
 
     # Font configuration
     font-family = Roboto Mono

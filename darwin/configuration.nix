@@ -8,10 +8,14 @@
     # Docker removed - provided by OrbStack via Homebrew
   ];
 
+  fonts.packages = with pkgs; [
+    nerd-fonts.fira-code
+  ];
+
   imports = [
-    ./homebrew/common.nix       # Essential apps (1password, ghostty, tailscale)
-    ./homebrew/development.nix  # Dev tools (mise, aws, orbstack, editors)
-    ./homebrew/productivity.nix # Productivity (alfred, obsidian, nordvpn)
+    ./homebrew/common.nix # Shared macOS apps (1Password, Ghostty, Tailscale)
+    ./homebrew/development.nix # Brew-only formulae and shared dev apps
+    ./homebrew/productivity.nix # Shared productivity GUI apps
     ./defaults.nix
   ];
 
@@ -27,8 +31,8 @@
   nix.settings.auto-optimise-store = false;
   security.pam.services.sudo_local = {
     touchIdAuth = true;
-    watchIdAuth = false;  # Disabled - Swift build fails on nixpkgs
-    reattach = true;      # Enable Touch ID in tmux sessions
+    watchIdAuth = false; # Disabled - Swift build fails on nixpkgs
+    reattach = true; # Enable Touch ID in tmux sessions
   };
 
   # All macOS defaults are now declarative in ./defaults.nix

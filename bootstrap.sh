@@ -8,7 +8,8 @@ set -e
 # It handles fresh installs and updates existing installations.
 #
 # SUPPORTED MACHINES:
-#   work  - Work MacBook (development machine)
+#   work  - Work MacBook (development machine, username waqas.ahmed)
+#   macbook - Personal MacBook (development machine, username waqas)
 #   mini  - Mac Mini (media server with Jellyfin, Immich, Paperless, etc.)
 #
 # USAGE:
@@ -17,6 +18,7 @@ set -e
 #
 #   # Specify machine type explicitly:
 #   ./bootstrap.sh --machine work
+#   ./bootstrap.sh --machine macbook
 #   ./bootstrap.sh --machine mini
 #
 #   # Other options:
@@ -32,7 +34,7 @@ CONFIG_DIR="$WORK_DIR/dotnix"
 REPO_URL="https://github.com/uberbinge/dotnix.git"
 REPO_SSH="git@github.com:uberbinge/dotnix.git"
 
-# Machine type (work or mini) - auto-detected or specified via flag
+# Machine type (work, macbook, or mini) - auto-detected or specified via flag
 MACHINE_TYPE=""
 
 # Colors and formatting
@@ -91,8 +93,8 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --machine)
             MACHINE_TYPE="$2"
-            if [[ "$MACHINE_TYPE" != "work" && "$MACHINE_TYPE" != "mini" ]]; then
-                echo "Error: --machine must be 'work' or 'mini'"
+            if [[ "$MACHINE_TYPE" != "work" && "$MACHINE_TYPE" != "macbook" && "$MACHINE_TYPE" != "mini" ]]; then
+                echo "Error: --machine must be 'work', 'macbook', or 'mini'"
                 exit 1
             fi
             shift 2
@@ -112,7 +114,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
-            echo "  --machine TYPE  Machine type: 'work' or 'mini' (auto-detected if not specified)"
+            echo "  --machine TYPE  Machine type: 'work', 'macbook', or 'mini' (auto-detected if not specified)"
             echo "  --skip-xcode    Skip Xcode Command Line Tools installation"
             echo "  --force         Force reinstall components"
             echo "  --dry-run       Show what would be done without executing"
@@ -229,11 +231,12 @@ show_header() {
     printf "║%*s║\n" $((73 - ${#CURRENT_USER})) ""
     echo "║  Supported machines:                                                        ║"
     echo "║  • work - Work MacBook (development environment)                            ║"
+    echo "║  • macbook - Personal MacBook (development environment)                     ║"
     echo "║  • mini - Mac Mini (media server + services)                                ║"
     echo "║                                                                              ║"
     echo "║  This script will set up:                                                   ║"
     echo "║  • Lix (Nix fork) + nix-darwin                                              ║"
-    echo "║  • Applications via Homebrew                                                ║"
+    echo "║  • Shared macOS apps via Homebrew                                           ║"
     echo "║  • System preferences and shell environment                                 ║"
     echo "║  • 1Password SSH Agent integration                                          ║"
     echo "╚══════════════════════════════════════════════════════════════════════════════╝"
@@ -276,7 +279,7 @@ check_system_requirements() {
     fi
     success "Internet connection verified"
 
-    # Add common homebrew paths for tools
+    # Add common Homebrew paths for bootstrap-time tools if already installed.
     export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 }
 
@@ -441,7 +444,7 @@ show_completion() {
 
     echo -e "${BOLD}What was installed:${NC}"
     echo "  ✅ Complete development environment"
-    echo "  ✅ Applications via Homebrew"
+    echo "  ✅ Shared macOS apps via Homebrew"
     echo "  ✅ System preferences and shortcuts"
     echo "  ✅ Modern SSH setup (1Password SSH Agent)"
 
@@ -479,7 +482,7 @@ show_completion() {
     echo -e "${BOLD}Quick verification:${NC}"
     echo "  • Test shell history: Ctrl+R"
     echo "  • Test git access: git status (in any repo)"
-    if [ "$MACHINE_TYPE" = "work" ]; then
+    if [ "$MACHINE_TYPE" = "work" ] || [ "$MACHINE_TYPE" = "macbook" ]; then
         echo "  • Test tmux sessionizer: Ctrl+X"
         echo "  • Test development tools: node --version, aws --version"
     fi

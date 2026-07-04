@@ -9,13 +9,13 @@
       magnification = false;
       mru-spaces = false;
       show-recents = false;
-      showhidden = true;  # Dim hidden apps in Dock
+      showhidden = true; # Dim hidden apps in Dock
       tilesize = 32;
       # Hot corners (only corner actions, modifiers not supported by nix-darwin)
-      wvous-tl-corner = 1;   # Top-left: Disabled
-      wvous-tr-corner = 12;  # Top-right: Notification Center
-      wvous-bl-corner = 1;   # Bottom-left: Disabled
-      wvous-br-corner = 4;   # Bottom-right: Desktop
+      wvous-tl-corner = 1; # Top-left: Disabled
+      wvous-tr-corner = 12; # Top-right: Notification Center
+      wvous-bl-corner = 1; # Bottom-left: Disabled
+      wvous-br-corner = 4; # Bottom-right: Desktop
     };
     finder = {
       AppleShowAllExtensions = true;
@@ -48,6 +48,7 @@
     screencapture = {
       location = "~/Desktop";
       type = "png";
+      target = "clipboard";
     };
     NSGlobalDomain = {
       "com.apple.swipescrolldirection" = true;
@@ -62,7 +63,7 @@
       "AppleShowScrollBars" = "Always";
       "AppleEnableSwipeNavigateWithScrolls" = true;
       "com.apple.mouse.tapBehavior" = 1;
-      
+
       # Keyboard text input settings
       "NSAutomaticCapitalizationEnabled" = false;
       "NSAutomaticSpellingCorrectionEnabled" = false;
@@ -70,7 +71,7 @@
       "NSAutomaticQuoteSubstitutionEnabled" = true;
       "NSAutomaticDashSubstitutionEnabled" = true;
       "ApplePressAndHoldEnabled" = false;
-      
+
       # Window management
       "AppleWindowTabbingMode" = "always";
     };
@@ -100,7 +101,7 @@
       "com.google.android.studio" = { ApplePressAndHoldEnabled = false; };
       "com.apple.AppleMultitouchTrackpad" = {
         TrackpadFourFingerHorizSwipeGesture = 2;
-        TrackpadFourFingerVertSwipeGesture = 2;  # App Exposé (swipe down with four fingers)
+        TrackpadFourFingerVertSwipeGesture = 2; # App Exposé (swipe down with four fingers)
         TrackpadTwoFingerFromRightEdgeSwipeGesture = 3;
         TrackpadFiveFingerPinchGesture = 2;
         TrackpadFourFingerPinchGesture = 2;
@@ -144,11 +145,11 @@
       };
       "com.apple.menuextra.clock" = { Show24Hour = true; };
       "com.apple.symbolichotkeys" = {
-        AppleSymbolicHotKeys = { 
+        AppleSymbolicHotKeys = {
           # Spotlight / Finder search
-          "60" = { enabled = false; };  # Spotlight (one of the variants)
-          "64" = { enabled = false; };  # Spotlight (other variant)  
-          "65" = { enabled = false; };  # Show Finder search window (⌥⌘Space)
+          "60" = { enabled = false; }; # Spotlight (one of the variants)
+          "64" = { enabled = false; }; # Spotlight (other variant)
+          "65" = { enabled = false; }; # Show Finder search window (⌥⌘Space)
         };
       };
       "com.apple.dock" = {

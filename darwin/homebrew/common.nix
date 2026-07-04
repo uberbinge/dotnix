@@ -22,18 +22,16 @@
     ];
 
     brews = [
-      "mas"   # Mac App Store CLI
-      "mole"  # Terminal file manager (tw93/tap)
+      # Nixpkgs currently marks this package as broken.
+      "mole"
     ];
 
     casks = [
-      # Terminal & Fonts
+      # Terminal
       "ghostty@tip"
-      "font-fira-code-nerd-font"
 
       # Security (required on all machines)
       "1password"
-      "1password-cli"
       "tailscale-app"
     ];
   };
