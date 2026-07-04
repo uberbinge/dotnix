@@ -24,7 +24,7 @@ let
     let
       start = pkgs.writeShellApplication {
         name = "${serviceName}-start";
-        runtimeInputs = [ pkgs.docker ];
+        runtimeInputs = [ pkgs.docker pkgs._1password-cli ];
         text = ''
           ${extraEnvSetup}
           ${preStart}
@@ -116,7 +116,7 @@ let
   # Common 1Password secret fetching
   # Returns a shell expression string that will be evaluated at runtime to fetch the secret
   fetch1PasswordSecret = { vault ? cfg.onePassword.vault, item, field ? "password" }:
-    ''$(${pkgs._1password-cli}/bin/op read "op://${vault}/${item}/${field}" 2>/dev/null)'';
+    ''$(op read "op://${vault}/${item}/${field}" 2>/dev/null || true)'';
 
   # Validate 1Password secret was fetched
   # Generates shell code to check if a secret variable is non-empty

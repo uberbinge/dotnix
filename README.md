@@ -30,6 +30,9 @@ sudo darwin-rebuild switch --flake ~/dev/dotnix#work  # or #mini
 
 # Update packages
 nix flake update && sudo darwin-rebuild switch --flake ~/dev/dotnix#work
+
+# Public repo safety check before pushing
+bash scripts/public-safety-check.sh
 ```
 
 ## Structure

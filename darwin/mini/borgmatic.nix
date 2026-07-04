@@ -125,7 +125,7 @@ let
   # Run backup for a specific service
   borgmaticBackup = pkgs.writeShellApplication {
     name = "borgmatic-backup";
-    runtimeInputs = [ pkgs.docker ];
+    runtimeInputs = [ pkgs.coreutils pkgs.docker pkgs.gnugrep pkgs.gzip ];
     text = ''
       SERVICE="''${1:-}"
 
@@ -135,10 +135,35 @@ let
         exit 1
       fi
 
+      dump_paperless_db() {
+        DUMP_DIR="${cfg.paperless.dbDumpDir}"
+        mkdir -p "$DUMP_DIR"
+
+        if ! docker ps --format '{{.Names}}' | grep -qx paperless_db; then
+          echo "ERROR: paperless_db container is not running" >&2
+          exit 1
+        fi
+
+        TMP_DUMP="$DUMP_DIR/paperless-latest.sql.gz.tmp"
+        LATEST_DUMP="$DUMP_DIR/paperless-latest.sql.gz"
+        DATED_DUMP="$DUMP_DIR/paperless-$(date +%Y-%m-%d).sql.gz"
+
+        echo "Creating fresh Paperless database dump..."
+        docker exec paperless_db pg_dump -U paperless paperless | gzip -c > "$TMP_DUMP"
+        mv "$TMP_DUMP" "$LATEST_DUMP"
+        cp "$LATEST_DUMP" "$DATED_DUMP"
+        echo "Paperless database dump written to $LATEST_DUMP"
+      }
+
       if [ "$SERVICE" = "all" ]; then
+        dump_paperless_db
         echo "Running all backups..."
         docker exec -it borgmatic borgmatic --verbosity 1 --stats --progress
       else
+        if [ "$SERVICE" = "paperless" ]; then
+          dump_paperless_db
+        fi
+
         echo "Running $SERVICE backup..."
         docker exec -it borgmatic borgmatic \
           --config "/etc/borgmatic/config.d/$SERVICE.yaml" \
@@ -221,6 +246,8 @@ let
     keepDaily ? 1,
     keepWeekly ? 4,
     keepMonthly ? 6,
+    beforeBackup ? [],
+    afterBackup ? [],
   }: {
     repositories = [{
       path = "ssh://HETZNER_ACCOUNT_PLACEHOLDER-${subAccount}@HETZNER_ACCOUNT_PLACEHOLDER-${subAccount}.your-storagebox.de:23/./borg-${service}";
@@ -235,6 +262,10 @@ let
     keep_monthly = keepMonthly;
     checks = [{ name = "repository"; }] ++ lib.optionals checkArchives [{ name = "archives"; }];
     check_last = 3;
+  } // lib.optionalAttrs (beforeBackup != []) {
+    before_backup = beforeBackup;
+  } // lib.optionalAttrs (afterBackup != []) {
+    after_backup = afterBackup;
   };
 
   # Docker Compose configuration as structured Nix
@@ -256,9 +287,11 @@ let
         "./config.d:/etc/borgmatic/config.d:ro"
         "./ssh:/ssh:ro"
         "./logs:/var/log/borgmatic"
-        "${mediaVolume}/immich/library/upload:/sources/immich:ro"
+        "${mediaVolume}/immich/library:/sources/immich:ro"
+        "${mediaVolume}/immich/postgres:/sources/immich-postgres:ro"
         "${mediaVolume}/jellyfin:/sources/jellyfin:ro"
         "${mediaVolume}/paperless:/sources/paperless:ro"
+        "${cfg.paperless.dbDumpDir}:/sources/paperless-db-dumps:ro"
         "/Volumes/2tb:/sources/media2tb:ro"
       ];
     };
@@ -270,13 +303,23 @@ let
   immichConfig = yamlFormat.generate "immich-borgmatic.yaml" (mkBorgmaticConfig {
     service = "immich";
     subAccount = "sub1";
-    sourceDirs = [ "/sources/immich" ];
+    sourceDirs = [
+      "/sources/immich"
+      "/sources/immich-postgres"
+      "/tmp/immich-db-latest"
+    ];
     excludePatterns = [
       "**/thumbs/**"
       "**/encoded-video/**"
       "**/backups/**"
       "**/.DS_Store"
       "**/.Trash/**"
+    ];
+    beforeBackup = [
+      "mkdir -p /tmp/immich-db-latest && latest=$(find /sources/immich/backups -name '*.sql.gz' -type f 2>/dev/null | sort | tail -1) && if [ -n \"$latest\" ]; then cp \"$latest\" /tmp/immich-db-latest/; else echo 'No Immich SQL dump found under /sources/immich/backups'; fi"
+    ];
+    afterBackup = [
+      "rm -rf /tmp/immich-db-latest"
     ];
   });
 
@@ -306,7 +349,10 @@ let
   paperlessConfig = yamlFormat.generate "paperless-borgmatic.yaml" (mkBorgmaticConfig {
     service = "paperless";
     subAccount = "sub3";
-    sourceDirs = [ "/sources/paperless" ];
+    sourceDirs = [
+      "/sources/paperless"
+      "/sources/paperless-db-dumps"
+    ];
     excludePatterns = [
       "**/.DS_Store"
       "**/.Trash/**"

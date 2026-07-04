@@ -4,6 +4,7 @@
 
 let
   cfg = config.services.mediaServer;
+  alfredIcon = "${config.home.homeDirectory}/.config/alfred/brave.png";
 in
 {
   imports = [
@@ -24,6 +25,24 @@ in
     MEDIA_VOLUME = cfg.mediaVolume;
     MEDIA_CONFIG_DIR = cfg.configDir;
   };
+
+  programs.alfredWebsiteHelper.extraPersonalSites = [
+    {
+      title = "paperless";
+      arg = "https://${cfg.domains.paperless}";
+      icon = alfredIcon;
+    }
+    {
+      title = "immich";
+      arg = "https://${cfg.domains.immich}";
+      icon = alfredIcon;
+    }
+    {
+      title = "jellyfin";
+      arg = "https://${cfg.domains.jellyfin}";
+      icon = alfredIcon;
+    }
+  ];
 
   # Create config directory structure
   home.file = {

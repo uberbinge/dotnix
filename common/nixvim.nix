@@ -1,8 +1,9 @@
-{ config, lib, pkgs, username, ... }:
+{ config, lib, pkgs, username, nixpkgs, ... }:
 {
   programs.nixvim = {
     config = {
       enable = true;
+      nixpkgs.source = nixpkgs;
       colorschemes.tokyonight = {
         enable = true;
         settings.style = "night";
@@ -226,12 +227,13 @@
           enable = true;
           nixGrammars = true;
           grammarPackages = pkgs.vimPlugins.nvim-treesitter.allGrammars;
+          highlight.disable = [ "ruby" ];
           settings = {
             auto_install = false;
             sync_install = false;
             incremental_selection.enable = true;
             indent = { enable = true; };
-            highlight = { enable = true; disable = [ "ruby" ]; };
+            highlight.enable = true;
           };
         };
         fidget.enable = true;

@@ -8,6 +8,10 @@ let
 
   cfg = config.services.mediaServer;
   serviceConfigDir = "${cfg.configDir}/paperless";
+  pgVolume =
+    if cfg.paperless.useExternalPostgresDataDir
+    then "${cfg.paperless.postgresDataDir}:/var/lib/postgresql/data"
+    else "pgdata:/var/lib/postgresql/data";
 
   # 1Password secret setup for Paperless
   secretEnvSetup = ''
@@ -32,6 +36,30 @@ let
     extraEnvSetup = secretEnvSetup;
   };
 
+  paperlessDbDump = pkgs.writeShellApplication {
+    name = "paperless-db-dump";
+    runtimeInputs = [ pkgs.coreutils pkgs.docker pkgs.gnugrep pkgs.gzip ];
+    text = ''
+      DUMP_DIR="${cfg.paperless.dbDumpDir}"
+      mkdir -p "$DUMP_DIR"
+
+      if ! docker ps --format '{{.Names}}' | grep -qx paperless_db; then
+        echo "ERROR: paperless_db container is not running" >&2
+        exit 1
+      fi
+
+      TMP_DUMP="$DUMP_DIR/paperless-latest.sql.gz.tmp"
+      LATEST_DUMP="$DUMP_DIR/paperless-latest.sql.gz"
+      DATED_DUMP="$DUMP_DIR/paperless-$(date +%Y-%m-%d).sql.gz"
+
+      docker exec paperless_db pg_dump -U paperless paperless | gzip -c > "$TMP_DUMP"
+      mv "$TMP_DUMP" "$LATEST_DUMP"
+      cp "$LATEST_DUMP" "$DATED_DUMP"
+
+      echo "Paperless database dump written to $LATEST_DUMP"
+    '';
+  };
+
   # Docker Compose configuration as structured Nix
   composeConfig = {
     name = "paperless";
@@ -47,7 +75,7 @@ let
         container_name = "paperless_db";
         image = "docker.io/library/postgres:17";
         restart = "unless-stopped";
-        volumes = [ "pgdata:/var/lib/postgresql/data" ];
+        volumes = [ pgVolume ];
         environment = {
           POSTGRES_DB = "paperless";
           POSTGRES_USER = "paperless";
@@ -72,8 +100,8 @@ let
           PAPERLESS_REDIS = "redis://broker:6379";
           PAPERLESS_DBHOST = "db";
           PAPERLESS_TIME_ZONE = "Europe/Berlin";
-          PAPERLESS_URL = "https://paperless.ti.waqas.dev";
-          PAPERLESS_CSRF_TRUSTED_ORIGINS = "https://paperless.ti.waqas.dev";
+          PAPERLESS_URL = "https://${cfg.domains.paperless}";
+          PAPERLESS_CSRF_TRUSTED_ORIGINS = "https://${cfg.domains.paperless}";
           USERMAP_UID = userId;
           USERMAP_GID = groupId;
         };
@@ -86,14 +114,27 @@ let
       };
     };
 
-    volumes = {
-      redisdata = {};
+    volumes = { redisdata = {}; } // lib.optionalAttrs (!cfg.paperless.useExternalPostgresDataDir) {
       pgdata = {};
     };
   };
 in
 {
-  home.packages = scripts.scripts;
+  assertions = [
+    {
+      assertion =
+        !cfg.paperless.useExternalPostgresDataDir
+        || cfg.paperless.externalPostgresMigrationConfirmed;
+      message = ''
+        Refusing to use ${cfg.paperless.postgresDataDir} for Paperless PostgreSQL
+        until services.mediaServer.paperless.externalPostgresMigrationConfirmed
+        is set to true. First migrate the existing Docker pgdata volume and
+        verify a database-safe dump.
+      '';
+    }
+  ];
+
+  home.packages = scripts.scripts ++ [ paperlessDbDump ];
 
   # Create config directory
   home.file."${serviceConfigDir}/.keep".text = "";
@@ -107,6 +148,22 @@ in
     serviceName = "paperless";
     startScript = scripts.start;
     inherit serviceConfigDir;
+  };
+
+  # Dump Postgres before the 5 AM borgmatic Paperless backup.
+  launchd.agents.paperless-db-dump = {
+    enable = true;
+    config = {
+      Label = "com.paperless.db-dump";
+      ProgramArguments = [ "${paperlessDbDump}/bin/paperless-db-dump" ];
+      StartCalendarInterval = [{ Hour = 4; Minute = 45; }];
+      StandardOutPath = "${config.home.homeDirectory}/.local/share/paperless/db-dump.log";
+      StandardErrorPath = "${config.home.homeDirectory}/.local/share/paperless/db-dump.log";
+      EnvironmentVariables = {
+        HOME = config.home.homeDirectory;
+        PATH = "${pkgs.docker}/bin:${pkgs.gzip}/bin:/usr/bin:/bin";
+      };
+    };
   };
 
   # Create log directory

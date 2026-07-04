@@ -6,12 +6,13 @@ let
   # Caddy with Cloudflare DNS plugin for DNS-01 ACME challenge
   caddyWithCloudflare = pkgs.caddy.withPlugins {
     plugins = [ "github.com/caddy-dns/cloudflare@v0.2.2" ];
-    hash = "sha256-dnhEjopeA0UiI+XVYHYpsjcEI6Y1Hacbi28hVKYQURg=";
+    hash = "sha256-wHW0l15aLswe7gV9WioXo//abd0sJI82I7zIroRG3uU=";
   };
 
   caddyConfigDir = "${config.home.homeDirectory}/.config/caddy";
   caddyDataDir = "${config.home.homeDirectory}/.local/share/caddy";
   caddyLogDir = "${config.home.homeDirectory}/.local/share/caddy/logs";
+  domains = config.services.mediaServer.domains;
 
   # Wrapper script that loads Cloudflare token from 1Password
   caddyWrapper = pkgs.writeShellApplication {
@@ -61,13 +62,13 @@ in
     }
 
     # Immich - Photo management
-    immich.ti.waqas.dev {
+    ${domains.immich} {
       reverse_proxy http://localhost:2283
       import cloudflare
     }
 
     # Jellyfin - Media server
-    jelly.ti.waqas.dev {
+    ${domains.jellyfin} {
       import cloudflare
 
       reverse_proxy http://localhost:8096 {
@@ -82,13 +83,13 @@ in
     }
 
     # Paperless - Document management
-    paperless.ti.waqas.dev {
+    ${domains.paperless} {
       reverse_proxy http://localhost:8000
       import cloudflare
     }
 
     # Home Assistant
-    home.ti.waqas.dev {
+    ${domains.homeAssistant} {
       reverse_proxy http://localhost:8123
       import cloudflare
     }
