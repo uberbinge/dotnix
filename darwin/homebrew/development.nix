@@ -4,8 +4,9 @@
 {
   homebrew = {
     brews = [
-      # Not currently packaged in pinned Nixpkgs.
+      # Not currently packaged or not reliably buildable in pinned Nixpkgs.
       "awscurl"
+      "opa"
     ];
 
     casks = [

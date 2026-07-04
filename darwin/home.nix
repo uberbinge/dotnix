@@ -28,7 +28,6 @@
     awscli2
     golangci-lint
     conftest
-    open-policy-agent
     regal
     sqlite
     gemini-cli
