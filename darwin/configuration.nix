@@ -40,6 +40,11 @@
   # No imperative activation scripts needed
 
   programs.zsh.enable = true;
+  # oh-my-zsh (via home-manager) already runs `compinit -i`, which safely
+  # ignores insecure completion dirs. Without this, nix-darwin's system
+  # /etc/zshrc runs a bare `compinit` first, which prompts on the shared,
+  # group-writable Homebrew install (used by multiple users on this machine).
+  programs.zsh.enableCompletion = false;
   environment.shells = [ pkgs.zsh ];
   users.users.${username} = {
     name = username;
