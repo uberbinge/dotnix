@@ -71,6 +71,9 @@
   programs.fzf = {
     enable = true;
     enableZshIntegration = true;
+    # Atuin owns Ctrl-R (sourced after fzf); disable fzf's history widget so
+    # the two don't both bind it.
+    historyWidget.command = "";
   };
   programs.jq.enable = true;
 

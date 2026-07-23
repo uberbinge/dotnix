@@ -3,6 +3,9 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    # Pinned to the last rev where ncspot builds on aarch64-darwin; newer
+    # unstable crashes the linker. Overlaid onto ncspot only (see below).
+    nixpkgs-ncspot.url = "github:nixos/nixpkgs/e8273b29fe1390ec8d4603f2477357555291432e";
     nix-darwin = {
       url = "github:lnl7/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -22,11 +25,17 @@
     };
   };
 
-  outputs = inputs@{ self, nixpkgs, nix-darwin, home-manager, nix-homebrew, nixvim, website-opener }:
+  outputs = inputs@{ self, nixpkgs, nixpkgs-ncspot, nix-darwin, home-manager, nix-homebrew, nixvim, website-opener }:
     let
       lib = nixpkgs.lib;
       systems = [ "aarch64-darwin" "aarch64-linux" "x86_64-linux" ];
       forAllSystems = lib.genAttrs systems;
+
+      # Source ncspot from a pinned older nixpkgs; current unstable fails to
+      # link it on aarch64-darwin (ld: Trace/BPT trap: 5).
+      ncspotOverlay = final: prev: {
+        ncspot = nixpkgs-ncspot.legacyPackages.${prev.system}.ncspot;
+      };
 
       # Username configuration - explicit per-machine for reproducibility
       # Using builtins.getEnv is impure and breaks flake reproducibility
@@ -39,7 +48,10 @@
 
       mkConfiguration = { system, username, hostname ? null, isNixOS ? false, extraDarwinModules ? [ ], extraHomeModules ? [ ] }:
         let
-          pkgs = import nixpkgs { inherit system; };
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ ncspotOverlay ];
+          };
           specialArgs = inputs // {
             inherit system username hostname;
             githubUserEmail = "1692495+uberbinge@users.noreply.github.com";
@@ -94,6 +106,7 @@
             {
               inherit system specialArgs;
               modules = [
+                { nixpkgs.overlays = [ ncspotOverlay ]; }
                 ./darwin/configuration.nix
                 home-manager.darwinModules.home-manager
                 mkCommonHomeConfig
