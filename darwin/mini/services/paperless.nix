@@ -28,6 +28,7 @@ let
     PAPERLESS_SECRET_KEY=$SECRET_KEY
     PAPERLESS_OCR_LANGUAGE=eng+deu
     EOF
+    chmod 600 "${serviceConfigDir}/.env"
   '';
 
   scripts = mkDockerComposeScripts {

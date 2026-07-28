@@ -25,6 +25,7 @@ let
     REDIS_HOSTNAME=immich_redis
     IMMICH_MACHINE_LEARNING_URL=http://immich-machine-learning:3003
     EOF
+    chmod 600 "${serviceConfigDir}/.env"
   '';
 
   scripts = mkDockerComposeScripts {

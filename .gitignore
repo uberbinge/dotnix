@@ -5,6 +5,10 @@
 .idea/
 .vscode/
 
+# Agent/tooling scratch dirs
+.claude/
+.crush/
+
 # Nix build artifacts
 result
 result-*
