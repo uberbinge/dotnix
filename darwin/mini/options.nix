@@ -69,6 +69,12 @@
         description = "Public DNS name used by Caddy for Immich.";
       };
 
+      ttCoach = lib.mkOption {
+        type = lib.types.str;
+        default = "tt.ti.waqas.dev";
+        description = "Public DNS name used by Caddy for the tt-coach RAG UI and API.";
+      };
+
       jellyfin = lib.mkOption {
         type = lib.types.str;
         default = "jelly.ti.waqas.dev";

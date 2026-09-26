@@ -88,6 +88,12 @@ in
       import cloudflare
     }
 
+    # tt-coach - coaching video search (SPA + API + video streaming)
+    ${domains.ttCoach} {
+      reverse_proxy http://127.0.0.1:5001
+      import cloudflare
+    }
+
     # Home Assistant
     ${domains.homeAssistant} {
       reverse_proxy http://localhost:8123

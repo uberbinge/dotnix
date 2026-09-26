@@ -8,8 +8,7 @@ let
   repoDir = "${config.home.homeDirectory}/dev/tt-coach";
   dataDir = "${cfg.mediaVolume}/tt-coach";
   logDir = "${config.home.homeDirectory}/.local/state/tt-coach";
-  # Bind to Tailscale only; the API accepts download jobs and must not be reachable on the LAN.
-  tailscaleIp = "100.105.137.48";
+  # Localhost only; reached through Caddy at the ttCoach domain (DNS points at the tailnet), never the LAN.
   port = "5001";
   brewPath = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin";
 in
@@ -44,7 +43,7 @@ in
         HOME = config.home.homeDirectory;
         PATH = "${repoDir}/.venv/bin:${brewPath}";
         TT_COACH_DATA = dataDir;
-        TT_COACH_HOST = tailscaleIp;
+        TT_COACH_HOST = "127.0.0.1";
         TT_COACH_PORT = port;
       };
       StandardOutPath = "${logDir}/server.log";
