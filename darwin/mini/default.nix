@@ -14,6 +14,7 @@ in
     ./services/immich.nix
     ./services/jellyfin.nix
     ./services/paperless.nix
+    ./services/tt-coach.nix
     ./scripts.nix
     ./borgmatic.nix
     ./caddy.nix

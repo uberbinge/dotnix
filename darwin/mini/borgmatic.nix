@@ -67,6 +67,7 @@ let
     sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${jellyfinConfig}" > "$CONFIG_DIR/jellyfin.yaml"
     sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${paperlessConfig}" > "$CONFIG_DIR/paperless.yaml"
     sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${homeassistantConfig}" > "$CONFIG_DIR/homeassistant.yaml"
+    sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${ttCoachConfig}" > "$CONFIG_DIR/tt-coach.yaml"
     sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${media2tbConfig}" > "$CONFIG_DIR/media2tb.yaml"
     echo "Borgmatic configs generated"
   '';
@@ -137,7 +138,7 @@ let
 
       if [ -z "$SERVICE" ]; then
         echo "Usage: borgmatic-backup <service>"
-        echo "Services: immich, jellyfin, paperless, homeassistant, media2tb, all"
+        echo "Services: immich, jellyfin, paperless, homeassistant, tt-coach, media2tb, all"
         exit 1
       fi
 
@@ -213,7 +214,7 @@ let
         STARTED_EPOCH="$(date +%s)"
         docker exec borgmatic borgmatic --verbosity 1 --stats --progress
         EXIT_CODE="$?"
-        for svc in immich jellyfin paperless homeassistant media2tb; do
+        for svc in immich jellyfin paperless homeassistant tt-coach media2tb; do
           if [ "$EXIT_CODE" -eq 0 ]; then
             write_status "$svc" success "$STARTED_EPOCH" "$EXIT_CODE"
           else
@@ -240,7 +241,7 @@ let
 
       if [ -z "$SERVICE" ]; then
         echo "Usage: borgmatic-list <service>"
-        echo "Services: immich, jellyfin, paperless, homeassistant"
+        echo "Services: immich, jellyfin, paperless, homeassistant, tt-coach"
         exit 1
       fi
 
@@ -259,7 +260,7 @@ let
 
       if [ -z "$SERVICE" ]; then
         echo "Usage: borgmatic-check <service>"
-        echo "Services: immich, jellyfin, paperless, homeassistant, all"
+        echo "Services: immich, jellyfin, paperless, homeassistant, tt-coach, all"
         exit 1
       fi
 
@@ -284,7 +285,7 @@ let
 
       if [ -z "$SERVICE" ]; then
         echo "Usage: borgmatic-info <service>"
-        echo "Services: immich, jellyfin, paperless, homeassistant"
+        echo "Services: immich, jellyfin, paperless, homeassistant, tt-coach"
         exit 1
       fi
 
@@ -349,6 +350,7 @@ let
         "${mediaVolume}/paperless:/sources/paperless:ro"
         "${cfg.paperless.dbDumpDir}:/sources/paperless-db-dumps:ro"
         "${haConfigDir}:/sources/homeassistant:ro"
+        "${mediaVolume}/tt-coach:/sources/tt-coach:ro"
         "/Volumes/2tb:/sources/media2tb:ro"
       ];
     };
@@ -439,6 +441,18 @@ let
     checkArchives = true;
   });
 
+  # tt-coach RAG: coaching videos + sqlite-vec DB, shares sub5 (misc) with media2tb as a separate borg repo
+  ttCoachConfig = yamlFormat.generate "tt-coach-borgmatic.yaml" (mkBorgmaticConfig {
+    service = "tt-coach";
+    subAccount = "sub5";
+    sourceDirs = [ "/sources/tt-coach" ];
+    excludePatterns = [
+      "**/.DS_Store"
+      "**/*.part"
+      "**/*.ytdl"
+    ];
+  });
+
   # 2TB drive backup - ONE-TIME ARCHIVE (not scheduled, keep forever)
   media2tbConfig = yamlFormat.generate "media2tb-borgmatic.yaml" (mkBorgmaticConfig {
     service = "media2tb";
@@ -477,6 +491,9 @@ let
 
     # Home Assistant config backup - 5:10 AM daily (after paperless, which finishes in seconds)
     10 5 * * * ${exportBorgEnv}; /scripts/backup-runner.sh homeassistant
+
+    # tt-coach RAG (videos + DB) - 5:20 AM daily
+    20 5 * * * ${exportBorgEnv}; /scripts/backup-runner.sh tt-coach
 
     # Daily backup status report via Telegram - 9 AM
     0 9 * * * ${exportTelegramEnv}; /scripts/backup-status.sh >> /var/log/borgmatic/status-report.log 2>&1
@@ -597,12 +614,14 @@ let
     JELLYFIN_CONFIG="/etc/borgmatic/config.d/jellyfin.yaml"
     PAPERLESS_CONFIG="/etc/borgmatic/config.d/paperless.yaml"
     HOMEASSISTANT_CONFIG="/etc/borgmatic/config.d/homeassistant.yaml"
+    TTCOACH_CONFIG="/etc/borgmatic/config.d/tt-coach.yaml"
 
     # Check each service
     immich_status=$(check_backup_status "$IMMICH_CONFIG")
     jellyfin_status=$(check_backup_status "$JELLYFIN_CONFIG")
     paperless_status=$(check_backup_status "$PAPERLESS_CONFIG")
     homeassistant_status=$(check_backup_status "$HOMEASSISTANT_CONFIG")
+    ttcoach_status=$(check_backup_status "$TTCOACH_CONFIG")
 
     # Build status message
     today=$(date +"%Y-%m-%d")
@@ -669,6 +688,21 @@ let
         ((failures++)) || true
     else
         message+="❌ Home Assistant: FAILED
+    "
+        ((failures++)) || true
+    fi
+
+    # tt-coach status
+    if [ "$ttcoach_status" = "OK" ]; then
+        message+="✅ tt-coach: OK
+    "
+    elif [[ "$ttcoach_status" == STALE:* ]]; then
+        last_date="''${ttcoach_status#STALE:}"
+        message+="⚠️ tt-coach: Stale (last: ''${last_date})
+    "
+        ((failures++)) || true
+    else
+        message+="❌ tt-coach: FAILED
     "
         ((failures++)) || true
     fi
