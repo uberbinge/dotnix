@@ -60,7 +60,7 @@ in
           echo "Generating Alfred sites from 1Password work-urls..."
 
           # Get work URLs directly from 1Password JSON structure
-          work_data=$("$op_cli" item get work-urls --account=my.1password.eu --format=json 2>/dev/null)
+          work_data=$("$op_cli" item get work-urls --account=my.1password.eu --format=json 2>/dev/null || true)
 
           if [ -n "$work_data" ]; then
             # Extract work sites using jq and combine with personal sites

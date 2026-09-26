@@ -8,6 +8,9 @@ let
 
   cfg = config.services.mediaServer;
   serviceConfigDir = "${cfg.configDir}/paperless";
+  paperlessImage = "ghcr.io/paperless-ngx/paperless-ngx:2.20.10@sha256:07a0b4ba01ce377c82a0636e16c0c3d931fde5b7e9304de6601986cc42d9b6e6";
+  redisImage = "docker.io/library/redis:8@sha256:1c054d54ecd1597bba52f4304bca5afbc5565ebe614c5b3d7dc5b7f8a0cd768d";
+  postgresImage = "docker.io/library/postgres:17@sha256:2cd82735a36356842d5eb1ef80db3ae8f1154172f0f653db48fde079b2a0b7f7";
   pgVolume =
     if cfg.paperless.useExternalPostgresDataDir
     then "${cfg.paperless.postgresDataDir}:/var/lib/postgresql/data"
@@ -67,14 +70,14 @@ let
     services = {
       broker = {
         container_name = "paperless_broker";
-        image = "docker.io/library/redis:8";
+        image = redisImage;
         restart = "unless-stopped";
         volumes = [ "redisdata:/data" ];
       };
 
       db = {
         container_name = "paperless_db";
-        image = "docker.io/library/postgres:17";
+        image = postgresImage;
         restart = "unless-stopped";
         volumes = [ pgVolume ];
         environment = {
@@ -86,7 +89,7 @@ let
 
       webserver = {
         container_name = "paperless_webserver";
-        image = "ghcr.io/paperless-ngx/paperless-ngx:latest";
+        image = paperlessImage;
         restart = "unless-stopped";
         depends_on = [ "db" "broker" ];
         ports = [ "8000:8000" ];

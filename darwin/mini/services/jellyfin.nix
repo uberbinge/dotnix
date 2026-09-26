@@ -14,14 +14,14 @@ let
 
   dataDir = "${mediaVolume}/jellyfin/config";
   cacheDir = "${mediaVolume}/jellyfin/cache";
-  logDir = "${config.home.homeDirectory}/.local/share/jellyfin/logs";
+  launchdLogDir = "${config.home.homeDirectory}/.local/state/jellyfin";
 
   # Management scripts
   jellyfinStart = pkgs.writeShellApplication {
     name = "jellyfin-start";
     text = ''
       echo "Starting Jellyfin..."
-      launchctl start com.jellyfin.server || launchctl load ~/Library/LaunchAgents/com.jellyfin.server.plist
+      launchctl kickstart -k "gui/$(id -u)/com.jellyfin.server" || launchctl start com.jellyfin.server
       echo "Jellyfin started. Access at http://localhost:8096"
     '';
   };
@@ -40,9 +40,11 @@ let
     name = "jellyfin-restart";
     text = ''
       echo "Restarting Jellyfin..."
-      launchctl stop com.jellyfin.server || true
-      sleep 2
-      launchctl start com.jellyfin.server
+      launchctl kickstart -k "gui/$(id -u)/com.jellyfin.server" || {
+        launchctl stop com.jellyfin.server || true
+        sleep 2
+        launchctl start com.jellyfin.server
+      }
       echo "Jellyfin restarted."
     '';
   };
@@ -67,11 +69,12 @@ let
   jellyfinLogs = pkgs.writeShellApplication {
     name = "jellyfin-logs";
     text = ''
-      LOG_FILE="${logDir}/jellyfin.log"
+      LOG_FILE="$(find "${dataDir}/log" -name 'log_*.log' -type f -print 2>/dev/null | sort | tail -n 1 || true)"
       if [ -f "$LOG_FILE" ]; then
         tail -f "$LOG_FILE"
       else
-        echo "No log file found at $LOG_FILE"
+        echo "No Jellyfin app log found under ${dataDir}/log"
+        echo "LaunchAgent log is ${launchdLogDir}/jellyfin-launchd.log"
         echo "Check launchd logs: log show --predicate 'subsystem == \"com.jellyfin.server\"' --last 1h"
       fi
     '';
@@ -100,7 +103,7 @@ in
   ];
 
   # Create required directories
-  home.file."${logDir}/.keep".text = "";
+  home.file."${launchdLogDir}/.keep".text = "";
 
   # launchd service for auto-start
   launchd.agents.jellyfin = {
@@ -116,13 +119,15 @@ in
       ];
       RunAtLoad = true;
       KeepAlive = true;
-      WorkingDirectory = dataDir;
+      # Keep launchd startup away from the external volume. Jellyfin still uses
+      # the explicit data/cache paths above for all service data.
+      WorkingDirectory = config.home.homeDirectory;
       EnvironmentVariables = {
         HOME = config.home.homeDirectory;
         TZ = "Europe/Berlin";
       };
-      StandardOutPath = "${logDir}/jellyfin.log";
-      StandardErrorPath = "${logDir}/jellyfin.log";
+      StandardOutPath = "${launchdLogDir}/jellyfin-launchd.log";
+      StandardErrorPath = "${launchdLogDir}/jellyfin-launchd.log";
     };
   };
 }

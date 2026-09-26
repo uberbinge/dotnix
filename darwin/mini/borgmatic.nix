@@ -8,6 +8,10 @@ let
 
   cfg = config.services.mediaServer;
   serviceConfigDir = "${cfg.configDir}/borgmatic";
+  statusDir = "${serviceConfigDir}/logs/status";
+  # Must match darwin/mini/services/home-assistant.nix's configDir
+  haConfigDir = "${config.home.homeDirectory}/.config/home-assistant-config";
+  borgmaticImage = "ghcr.io/borgmatic-collective/borgmatic:2.1@sha256:47851666598b26884bf61cf42981f602d67f8ad7b4d71c51e6a689bd685cc1f5";
 
   # Common SSH command for all repos
   sshCommand = "ssh -i /ssh/id_rsa -p 23 -o IdentitiesOnly=yes -o ServerAliveInterval=60 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/ssh/known_hosts";
@@ -62,6 +66,7 @@ let
     sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${immichConfig}" > "$CONFIG_DIR/immich.yaml"
     sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${jellyfinConfig}" > "$CONFIG_DIR/jellyfin.yaml"
     sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${paperlessConfig}" > "$CONFIG_DIR/paperless.yaml"
+    sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${homeassistantConfig}" > "$CONFIG_DIR/homeassistant.yaml"
     sed "s/HETZNER_ACCOUNT_PLACEHOLDER/$HETZNER_ACCOUNT/g" "${media2tbConfig}" > "$CONFIG_DIR/media2tb.yaml"
     echo "Borgmatic configs generated"
   '';
@@ -128,12 +133,59 @@ let
     runtimeInputs = [ pkgs.coreutils pkgs.docker pkgs.gnugrep pkgs.gzip ];
     text = ''
       SERVICE="''${1:-}"
+      STATUS_DIR="${statusDir}"
 
       if [ -z "$SERVICE" ]; then
         echo "Usage: borgmatic-backup <service>"
-        echo "Services: immich, jellyfin, paperless, all"
+        echo "Services: immich, jellyfin, paperless, homeassistant, media2tb, all"
         exit 1
       fi
+
+      write_status() {
+        local service="$1"
+        local status="$2"
+        local started_epoch="$3"
+        local exit_code="$4"
+        local finished_epoch
+        local tmp
+
+        finished_epoch="$(date +%s)"
+        mkdir -p "$STATUS_DIR"
+        tmp="$STATUS_DIR/$service.status.tmp"
+
+        {
+          echo "service=$service"
+          echo "status=$status"
+          echo "source=manual"
+          echo "started_at=$(date -d "@$started_epoch" -Iseconds)"
+          echo "finished_at=$(date -d "@$finished_epoch" -Iseconds)"
+          echo "started_epoch=$started_epoch"
+          echo "finished_epoch=$finished_epoch"
+          echo "exit_code=$exit_code"
+        } > "$tmp"
+        mv "$tmp" "$STATUS_DIR/$service.status"
+      }
+
+      run_borgmatic() {
+        local service="$1"
+        local started_epoch
+        local exit_code
+
+        started_epoch="$(date +%s)"
+        echo "Running $service backup..."
+
+        docker exec borgmatic borgmatic \
+          --config "/etc/borgmatic/config.d/$service.yaml" \
+          --verbosity 1 --stats --progress
+
+        exit_code="$?"
+        if [ "$exit_code" -eq 0 ]; then
+          write_status "$service" success "$started_epoch" "$exit_code"
+        else
+          write_status "$service" failed "$started_epoch" "$exit_code"
+        fi
+        return "$exit_code"
+      }
 
       dump_paperless_db() {
         DUMP_DIR="${cfg.paperless.dbDumpDir}"
@@ -158,16 +210,23 @@ let
       if [ "$SERVICE" = "all" ]; then
         dump_paperless_db
         echo "Running all backups..."
-        docker exec -it borgmatic borgmatic --verbosity 1 --stats --progress
+        STARTED_EPOCH="$(date +%s)"
+        docker exec borgmatic borgmatic --verbosity 1 --stats --progress
+        EXIT_CODE="$?"
+        for svc in immich jellyfin paperless homeassistant media2tb; do
+          if [ "$EXIT_CODE" -eq 0 ]; then
+            write_status "$svc" success "$STARTED_EPOCH" "$EXIT_CODE"
+          else
+            write_status "$svc" failed "$STARTED_EPOCH" "$EXIT_CODE"
+          fi
+        done
+        exit "$EXIT_CODE"
       else
         if [ "$SERVICE" = "paperless" ]; then
           dump_paperless_db
         fi
 
-        echo "Running $SERVICE backup..."
-        docker exec -it borgmatic borgmatic \
-          --config "/etc/borgmatic/config.d/$SERVICE.yaml" \
-          --verbosity 1 --stats --progress
+        run_borgmatic "$SERVICE"
       fi
     '';
   };
@@ -181,7 +240,7 @@ let
 
       if [ -z "$SERVICE" ]; then
         echo "Usage: borgmatic-list <service>"
-        echo "Services: immich, jellyfin, paperless"
+        echo "Services: immich, jellyfin, paperless, homeassistant"
         exit 1
       fi
 
@@ -200,7 +259,7 @@ let
 
       if [ -z "$SERVICE" ]; then
         echo "Usage: borgmatic-check <service>"
-        echo "Services: immich, jellyfin, paperless, all"
+        echo "Services: immich, jellyfin, paperless, homeassistant, all"
         exit 1
       fi
 
@@ -225,7 +284,7 @@ let
 
       if [ -z "$SERVICE" ]; then
         echo "Usage: borgmatic-info <service>"
-        echo "Services: immich, jellyfin, paperless"
+        echo "Services: immich, jellyfin, paperless, homeassistant"
         exit 1
       fi
 
@@ -243,11 +302,10 @@ let
     sourceDirs,
     excludePatterns ? [],
     checkArchives ? false,
-    keepDaily ? 1,
+    keepDaily ? 7,
     keepWeekly ? 4,
     keepMonthly ? 6,
-    beforeBackup ? [],
-    afterBackup ? [],
+    commands ? [],
   }: {
     repositories = [{
       path = "ssh://HETZNER_ACCOUNT_PLACEHOLDER-${subAccount}@HETZNER_ACCOUNT_PLACEHOLDER-${subAccount}.your-storagebox.de:23/./borg-${service}";
@@ -262,10 +320,8 @@ let
     keep_monthly = keepMonthly;
     checks = [{ name = "repository"; }] ++ lib.optionals checkArchives [{ name = "archives"; }];
     check_last = 3;
-  } // lib.optionalAttrs (beforeBackup != []) {
-    before_backup = beforeBackup;
-  } // lib.optionalAttrs (afterBackup != []) {
-    after_backup = afterBackup;
+  } // lib.optionalAttrs (commands != []) {
+    inherit commands;
   };
 
   # Docker Compose configuration as structured Nix
@@ -292,6 +348,7 @@ let
         "${mediaVolume}/jellyfin:/sources/jellyfin:ro"
         "${mediaVolume}/paperless:/sources/paperless:ro"
         "${cfg.paperless.dbDumpDir}:/sources/paperless-db-dumps:ro"
+        "${haConfigDir}:/sources/homeassistant:ro"
         "/Volumes/2tb:/sources/media2tb:ro"
       ];
     };
@@ -315,11 +372,20 @@ let
       "**/.DS_Store"
       "**/.Trash/**"
     ];
-    beforeBackup = [
-      "mkdir -p /tmp/immich-db-latest && latest=$(find /sources/immich/backups -name '*.sql.gz' -type f 2>/dev/null | sort | tail -1) && if [ -n \"$latest\" ]; then cp \"$latest\" /tmp/immich-db-latest/; else echo 'No Immich SQL dump found under /sources/immich/backups'; fi"
-    ];
-    afterBackup = [
-      "rm -rf /tmp/immich-db-latest"
+    checkArchives = true;
+    commands = [
+      {
+        before = "repository";
+        when = [ "create" ];
+        run = [
+          "mkdir -p /tmp/immich-db-latest && latest=$(find /sources/immich/backups -name '*.sql.gz' -type f 2>/dev/null | sort | tail -1) && if [ -n \"$latest\" ]; then cp \"$latest\" /tmp/immich-db-latest/; else echo 'No Immich SQL dump found under /sources/immich/backups'; fi"
+        ];
+      }
+      {
+        after = "repository";
+        when = [ "create" ];
+        run = [ "rm -rf /tmp/immich-db-latest" ];
+      }
     ];
   });
 
@@ -361,6 +427,18 @@ let
     keepMonthly = 12;
   });
 
+  homeassistantConfig = yamlFormat.generate "homeassistant-borgmatic.yaml" (mkBorgmaticConfig {
+    service = "homeassistant";
+    subAccount = "sub4";
+    sourceDirs = [ "/sources/homeassistant" ];
+    excludePatterns = [
+      "**/.DS_Store"
+      "**/.Trash/**"
+      "**/.storage/*.corrupt.*"
+    ];
+    checkArchives = true;
+  });
+
   # 2TB drive backup - ONE-TIME ARCHIVE (not scheduled, keep forever)
   media2tbConfig = yamlFormat.generate "media2tb-borgmatic.yaml" (mkBorgmaticConfig {
     service = "media2tb";
@@ -389,13 +467,16 @@ let
     # Borgmatic backup schedule - run sequentially to avoid resource conflicts
 
     # Immich backup (2TB) - 2 AM daily
-    0 2 * * * ${exportBorgEnv}; borgmatic --config /etc/borgmatic/config.d/immich.yaml --verbosity 1 --stats >> /var/log/borgmatic/immich-cron.log 2>&1
+    0 2 * * * ${exportBorgEnv}; /scripts/backup-runner.sh immich
 
     # Jellyfin backup - 4 AM daily
-    0 4 * * * ${exportBorgEnv}; borgmatic --config /etc/borgmatic/config.d/jellyfin.yaml --verbosity 1 --stats >> /var/log/borgmatic/jellyfin-cron.log 2>&1
+    0 4 * * * ${exportBorgEnv}; /scripts/backup-runner.sh jellyfin
 
     # Paperless backup - 5 AM daily
-    0 5 * * * ${exportBorgEnv}; borgmatic --config /etc/borgmatic/config.d/paperless.yaml --verbosity 1 --stats >> /var/log/borgmatic/paperless-cron.log 2>&1
+    0 5 * * * ${exportBorgEnv}; /scripts/backup-runner.sh paperless
+
+    # Home Assistant config backup - 5:10 AM daily (after paperless, which finishes in seconds)
+    10 5 * * * ${exportBorgEnv}; /scripts/backup-runner.sh homeassistant
 
     # Daily backup status report via Telegram - 9 AM
     0 9 * * * ${exportTelegramEnv}; /scripts/backup-status.sh >> /var/log/borgmatic/status-report.log 2>&1
@@ -404,7 +485,7 @@ let
   '';
 
   dockerfileContent = ''
-    FROM ghcr.io/borgmatic-collective/borgmatic:2.1
+    FROM ${borgmaticImage}
 
     # Install curl for Telegram notifications
     RUN apk add --no-cache curl
@@ -417,8 +498,58 @@ let
     COPY scripts/backup-status.sh /scripts/backup-status.sh
     RUN chmod +x /scripts/backup-status.sh
 
+    # Copy backup runner script
+    COPY scripts/backup-runner.sh /scripts/backup-runner.sh
+    RUN chmod +x /scripts/backup-runner.sh
+
     # Create log directory
-    RUN mkdir -p /var/log/borgmatic
+    RUN mkdir -p /var/log/borgmatic/status
+  '';
+
+  backupRunnerScript = ''
+    #!/bin/sh
+    # Runs one borgmatic config and writes a small status file for dashboards.
+
+    SERVICE="$1"
+    CONFIG="/etc/borgmatic/config.d/$SERVICE.yaml"
+    LOG="/var/log/borgmatic/$SERVICE-cron.log"
+    STATUS_DIR="/var/log/borgmatic/status"
+
+    if [ -z "$SERVICE" ] || [ ! -f "$CONFIG" ]; then
+      echo "Usage: backup-runner.sh <service>" >&2
+      exit 64
+    fi
+
+    mkdir -p "$STATUS_DIR"
+    STARTED_EPOCH="$(date +%s)"
+    STARTED_AT="$(date -Iseconds)"
+
+    borgmatic --config "$CONFIG" --verbosity 1 --stats >> "$LOG" 2>&1
+    EXIT_CODE="$?"
+
+    FINISHED_EPOCH="$(date +%s)"
+    FINISHED_AT="$(date -Iseconds)"
+    TMP="$STATUS_DIR/$SERVICE.status.tmp"
+
+    if [ "$EXIT_CODE" -eq 0 ]; then
+      STATUS="success"
+    else
+      STATUS="failed"
+    fi
+
+    {
+      echo "service=$SERVICE"
+      echo "status=$STATUS"
+      echo "source=cron"
+      echo "started_at=$STARTED_AT"
+      echo "finished_at=$FINISHED_AT"
+      echo "started_epoch=$STARTED_EPOCH"
+      echo "finished_epoch=$FINISHED_EPOCH"
+      echo "exit_code=$EXIT_CODE"
+    } > "$TMP"
+    mv "$TMP" "$STATUS_DIR/$SERVICE.status"
+
+    exit "$EXIT_CODE"
   '';
 
   # Backup status notification script for Telegram
@@ -465,11 +596,13 @@ let
     IMMICH_CONFIG="/etc/borgmatic/config.d/immich.yaml"
     JELLYFIN_CONFIG="/etc/borgmatic/config.d/jellyfin.yaml"
     PAPERLESS_CONFIG="/etc/borgmatic/config.d/paperless.yaml"
+    HOMEASSISTANT_CONFIG="/etc/borgmatic/config.d/homeassistant.yaml"
 
     # Check each service
     immich_status=$(check_backup_status "$IMMICH_CONFIG")
     jellyfin_status=$(check_backup_status "$JELLYFIN_CONFIG")
     paperless_status=$(check_backup_status "$PAPERLESS_CONFIG")
+    homeassistant_status=$(check_backup_status "$HOMEASSISTANT_CONFIG")
 
     # Build status message
     today=$(date +"%Y-%m-%d")
@@ -521,6 +654,21 @@ let
         ((failures++)) || true
     else
         message+="❌ Paperless: FAILED
+    "
+        ((failures++)) || true
+    fi
+
+    # Home Assistant status
+    if [ "$homeassistant_status" = "OK" ]; then
+        message+="✅ Home Assistant: OK
+    "
+    elif [[ "$homeassistant_status" == STALE:* ]]; then
+        last_date="''${homeassistant_status#STALE:}"
+        message+="⚠️ Home Assistant: Stale (last: ''${last_date})
+    "
+        ((failures++)) || true
+    else
+        message+="❌ Home Assistant: FAILED
     "
         ((failures++)) || true
     fi
@@ -580,7 +728,7 @@ in
   # Note: YAML configs are generated at runtime by borgmatic-start (with secret substitution)
   home.activation.borgmaticWriteFiles = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     echo "Writing borgmatic Docker files..."
-    $DRY_RUN_CMD mkdir -p "${serviceConfigDir}/config.d" "${serviceConfigDir}/ssh" "${serviceConfigDir}/logs" "${serviceConfigDir}/scripts"
+    $DRY_RUN_CMD mkdir -p "${serviceConfigDir}/config.d" "${serviceConfigDir}/ssh" "${serviceConfigDir}/logs/status" "${serviceConfigDir}/scripts"
 
     # Copy docker-compose.yml
     $DRY_RUN_CMD cp -f "${dockerComposeFile}" "${serviceConfigDir}/docker-compose.yml"
@@ -598,6 +746,11 @@ in
     ${backupStatusScript}
     SCRIPT
     $DRY_RUN_CMD chmod +x "${serviceConfigDir}/scripts/backup-status.sh"
+
+    $DRY_RUN_CMD cat > "${serviceConfigDir}/scripts/backup-runner.sh" << 'SCRIPT'
+    ${backupRunnerScript}
+    SCRIPT
+    $DRY_RUN_CMD chmod +x "${serviceConfigDir}/scripts/backup-runner.sh"
 
     echo "Borgmatic Docker files written"
   '';
