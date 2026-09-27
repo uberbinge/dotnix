@@ -344,6 +344,12 @@ let
         "./config.d:/etc/borgmatic/config.d:ro"
         "./ssh:/ssh:ro"
         "./logs:/var/log/borgmatic"
+        # The image declares VOLUME for these three paths. Without an explicit
+        # mapping Docker mints a fresh anonymous volume for each one every time
+        # the container is recreated, leaving the old ones dangling.
+        "borg-cache:/root/.cache/borg"
+        "borg-config:/root/.config/borg"
+        "borgmatic-state:/root/.local/state/borgmatic"
         "${mediaVolume}/immich/library:/sources/immich:ro"
         "${mediaVolume}/immich/postgres:/sources/immich-postgres:ro"
         "${mediaVolume}/jellyfin:/sources/jellyfin:ro"
@@ -353,6 +359,12 @@ let
         "${mediaVolume}/tt-coach:/sources/tt-coach:ro"
         "/Volumes/2tb:/sources/media2tb:ro"
       ];
+    };
+
+    volumes = {
+      borg-cache = { };
+      borg-config = { };
+      borgmatic-state = { };
     };
   };
 
