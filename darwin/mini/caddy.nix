@@ -108,6 +108,12 @@ in
       import cloudflare
     }
 
+    # health-export - HealthKit sync + query API (iPhone app, hk-cli)
+    ${domains.health} {
+      reverse_proxy http://127.0.0.1:9876
+      import cloudflare
+    }
+
     # tt-coach - coaching video search (SPA + API + video streaming)
     ${domains.ttCoach} {
       reverse_proxy http://127.0.0.1:5001

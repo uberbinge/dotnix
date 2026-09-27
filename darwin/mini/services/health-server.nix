@@ -22,6 +22,8 @@ in
       EnvironmentVariables = {
         HOME = config.home.homeDirectory;
         HEALTH_DATA_DIR = dataDir;
+        # Localhost only: no app-level auth, so the only way in is HTTPS via Caddy from the tailnet.
+        HEALTH_SERVER_ADDR = "127.0.0.1:9876";
       };
       StandardOutPath = logFile;
       StandardErrorPath = logFile;

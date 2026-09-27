@@ -69,6 +69,12 @@
         description = "Public DNS name used by Caddy for Immich.";
       };
 
+      health = lib.mkOption {
+        type = lib.types.str;
+        default = "health.ti.waqas.dev";
+        description = "Public DNS name used by Caddy for the health-export server.";
+      };
+
       ttCoach = lib.mkOption {
         type = lib.types.str;
         default = "tt.ti.waqas.dev";
