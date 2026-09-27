@@ -40,7 +40,13 @@ let
     runtimeInputs = [ pkgs._1password-cli caddyWithCloudflare ];
     text = ''
       CONFIG="${caddyConfigDir}/Caddyfile"
-      CLOUDFLARE_API_TOKEN="$(op read "op://Automation/cloudflare-api-token/credential" 2>/dev/null || echo "")"
+      CLOUDFLARE_API_TOKEN=""
+      for attempt in 1 2 3 4 5; do
+        CLOUDFLARE_API_TOKEN="$(op read "op://Automation/cloudflare-api-token/credential" 2>/dev/null || echo "")"
+        [ -n "$CLOUDFLARE_API_TOKEN" ] && break
+        echo "caddy-reload: 1Password not ready (attempt $attempt/5), retrying in 3s" >&2
+        sleep 3
+      done
       export CLOUDFLARE_API_TOKEN
       if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
         echo "caddy-reload: could not read Cloudflare token from 1Password; run caddy-reload manually" >&2
@@ -93,9 +99,6 @@ in
 
       reverse_proxy http://localhost:8096 {
         header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-        header_up X-Forwarded-Host {host}
         transport http {
           read_buffer 8192
         }
