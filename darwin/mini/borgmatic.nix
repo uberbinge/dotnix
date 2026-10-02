@@ -443,7 +443,8 @@ let
 
   homeassistantConfig = yamlFormat.generate "homeassistant-borgmatic.yaml" (mkBorgmaticConfig {
     service = "homeassistant";
-    subAccount = "sub4";
+    # Moved off sub4, which is missing from known_hosts; the old sub4 repo is kept as history
+    subAccount = "sub5";
     sourceDirs = [ "/sources/homeassistant" ];
     excludePatterns = [
       "**/.DS_Store"
