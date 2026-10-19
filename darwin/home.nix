@@ -2,6 +2,18 @@
 {
   home.homeDirectory = "/Users/${username}";
 
+  # Agent keys only by default; add explicit host exceptions via settings.
+  programs.ssh = {
+    enable = true;
+    enableDefaultConfig = false;
+    settings."*" = {
+      IdentityAgent = "\"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"";
+      IdentityFile = "none";
+      IdentitiesOnly = false;
+      PreferredAuthentications = "publickey";
+    };
+  };
+
   # macOS-specific shell configuration
   programs.zsh.initContent = lib.mkAfter ''
     # 1Password SSH Agent override (macOS sets SSH_AUTH_SOCK by default)

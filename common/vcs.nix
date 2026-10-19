@@ -4,6 +4,10 @@
   programs.git = {
     enable = true;
     signing.format = "ssh";
+    # Use Home Manager's signer option to avoid duplicate gpg.ssh.program values.
+    # Other platforms retain Home Manager's SSH signer default (ssh-keygen).
+    signing.signer = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin
+      "/Applications/1Password.app/Contents/MacOS/op-ssh-sign";
     ignores = [
       ".DS_Store"
       ".mise.toml"
@@ -65,10 +69,6 @@
 
       # SSH signing configuration with 1Password
       gpg.format = "ssh";
-      "gpg \"ssh\"".program =
-        if pkgs.stdenv.isDarwin
-        then "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
-        else "${pkgs._1password-gui}/bin/op-ssh-sign";
       commit.gpgsign = true;
 
       # Platform-specific credential helper
