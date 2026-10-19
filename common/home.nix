@@ -1,4 +1,4 @@
-{ pkgs, lib, username, githubUserEmail, githubUserName, specialArgs, ... }:
+{ pkgs, lib, username, githubUserEmail, githubUserName, specialArgs, hostname ? null, ... }:
 {
   imports = [
     ../common/scripts.nix
@@ -228,9 +228,12 @@
       }
 
       # Platform-specific hs alias using lib.mkIf
-      # Uses username-based detection (matches bootstrap.sh logic)
+      # mac-personal shares its username with mini, so select it by configuration.
+      # Keep the existing username-based fallback for other configurations.
       (lib.mkIf pkgs.stdenv.isDarwin {
-        hs = "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#$([[ $(whoami) == 'waqas' ]] && echo mini || echo work)";
+        hs = if hostname == "mac-personal"
+          then "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#mac-personal"
+          else "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#$([[ $(whoami) == 'waqas' ]] && echo mini || echo work)";
       })
 
       (lib.mkIf pkgs.stdenv.isLinux {
