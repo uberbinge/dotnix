@@ -35,9 +35,14 @@
     reattach = true; # Enable Touch ID in tmux sessions
   };
 
-  # All macOS defaults are now declarative in ./defaults.nix
-  # nix-darwin automatically restarts Dock/Finder when their settings change
-  # No imperative activation scripts needed
+  # Saved defaults do not prove live input settings. Log out/in after input
+  # changes and verify gestures/shortcuts; activation never restarts a session.
+
+  # Checks run before activation, including direct darwin-rebuild invocations.
+  # Never migrate/chown an existing unknown or other-owned Homebrew install.
+  system.checks.text = lib.mkBefore ''
+    ${pkgs.bash}/bin/bash ${../scripts/check-homebrew.sh} ${lib.escapeShellArg username}
+  '';
 
   programs.zsh.enable = true;
   # oh-my-zsh (via home-manager) already runs `compinit -i`, which safely

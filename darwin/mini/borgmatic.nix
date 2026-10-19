@@ -18,9 +18,13 @@ let
 
   # Setup SSH key, known_hosts, passphrase, and generate configs from 1Password
   secretSetup = ''
+    umask 077
     SSH_DIR="${serviceConfigDir}/ssh"
     CONFIG_DIR="${serviceConfigDir}/config.d"
     mkdir -p "$SSH_DIR" "$CONFIG_DIR"
+    chmod 700 "$SSH_DIR"
+    SECRET_TMP=$(mktemp -d "${serviceConfigDir}/.secrets.XXXXXX")
+    trap 'rm -rf "$SECRET_TMP"' EXIT
 
     echo "Fetching Hetzner account ID from 1Password..."
     HETZNER_ACCOUNT=${fetch1PasswordSecret { item = "Hetzner Storage Box Account"; field = "notesPlain"; }}
@@ -30,15 +34,13 @@ let
     echo "Fetching SSH key from 1Password..."
     SSH_KEY=${fetch1PasswordSecret { item = "Hetzner Borg Backup Keys"; field = "ssh-private-key"; }}
     ${validate1PasswordSecret { secretVar = "SSH_KEY"; item = "Hetzner Borg Backup Keys"; field = "ssh-private-key"; }}
-    echo "$SSH_KEY" > "$SSH_DIR/id_rsa"
-    chmod 600 "$SSH_DIR/id_rsa"
+    echo "$SSH_KEY" > "$SECRET_TMP/id_rsa"
     echo "SSH key fetched and secured"
 
     echo "Fetching known_hosts from 1Password..."
     KNOWN_HOSTS=${fetch1PasswordSecret { item = "Hetzner Storage Box Known Hosts"; field = "notesPlain"; }}
     ${validate1PasswordSecret { secretVar = "KNOWN_HOSTS"; item = "Hetzner Storage Box Known Hosts"; field = "notesPlain"; }}
-    echo "$KNOWN_HOSTS" > "$SSH_DIR/known_hosts"
-    chmod 600 "$SSH_DIR/known_hosts"
+    echo "$KNOWN_HOSTS" > "$SECRET_TMP/known_hosts"
     echo "known_hosts fetched and secured"
 
     echo "Loading passphrase from 1Password..."
@@ -52,13 +54,27 @@ let
     ${validate1PasswordSecret { secretVar = "TELEGRAM_CHAT_ID"; item = "telegram-chat-id"; field = "notesPlain"; }}
     echo "Telegram credentials fetched"
 
+    case "$BORG_PASSPHRASE" in
+      *$'\n'*|*$'\r'*) echo "BORG_PASSPHRASE contains a newline; raw env files require single-line values" >&2; exit 1 ;;
+    esac
+    case "$TELEGRAM_BOT_TOKEN" in
+      *$'\n'*|*$'\r'*) echo "TELEGRAM_BOT_TOKEN contains a newline; raw env files require single-line values" >&2; exit 1 ;;
+    esac
+    case "$TELEGRAM_CHAT_ID" in
+      *$'\n'*|*$'\r'*) echo "TELEGRAM_CHAT_ID contains a newline; raw env files require single-line values" >&2; exit 1 ;;
+    esac
     # Write .env file for docker-compose
     {
       echo "BORG_PASSPHRASE=$BORG_PASSPHRASE"
       echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
       echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID"
-    } > "${serviceConfigDir}/.env"
-    chmod 600 "${serviceConfigDir}/.env"
+    } > "$SECRET_TMP/env"
+    # Publish only after every credential read and validation succeeded.
+    mv -f "$SECRET_TMP/id_rsa" "$SSH_DIR/id_rsa"
+    mv -f "$SECRET_TMP/known_hosts" "$SSH_DIR/known_hosts"
+    mv -f "$SECRET_TMP/env" "${serviceConfigDir}/secrets.env"
+    rmdir "$SECRET_TMP"
+    trap - EXIT
 
     # Copy fresh config templates from nix store and substitute account ID
     echo "Generating borgmatic configs..."
@@ -74,7 +90,7 @@ let
 
   # Cleanup .env file with passphrase
   secretCleanup = ''
-    rm -f "${serviceConfigDir}/.env"
+    rm -f "${serviceConfigDir}/secrets.env"
   '';
 
   # Management scripts using writeShellApplication
@@ -82,11 +98,29 @@ let
     name = "borgmatic-start";
     runtimeInputs = [ pkgs.docker pkgs._1password-cli ];
     text = ''
+      ready=false
+      for ((attempt = 1; attempt <= 15; attempt++)); do
+        if ${pkgs.coreutils}/bin/timeout --kill-after=2 3 docker info >/dev/null 2>&1; then
+          ready=true
+          break
+        fi
+        sleep 2
+      done
+      if [ "$ready" != true ]; then
+        echo "Docker unavailable; start Docker and retry borgmatic-start." >&2
+        exit 1
+      fi
+      COMPOSE_VERSION=$(docker compose version --short)
+      if [[ ! "$COMPOSE_VERSION" =~ ^v?([0-9]+)\.([0-9]+) ]] ||
+         (( BASH_REMATCH[1] < 2 || (BASH_REMATCH[1] == 2 && BASH_REMATCH[2] < 30) )); then
+        echo "Docker Compose >=2.30 is required for literal secret env files; update Docker first." >&2
+        exit 1
+      fi
       ${secretSetup}
       echo "Starting Borgmatic container..."
       cd "${serviceConfigDir}"
 
-      docker compose up -d --build
+      docker compose --env-file /dev/null up -d --build
       echo "Borgmatic started"
     '';
   };
@@ -97,7 +131,7 @@ let
     text = ''
       echo "Stopping Borgmatic..."
       cd "${serviceConfigDir}"
-      docker compose down
+      docker compose --env-file /dev/null down
       ${secretCleanup}
       echo "Borgmatic stopped"
     '';
@@ -108,7 +142,7 @@ let
     runtimeInputs = [ pkgs.docker ];
     text = ''
       cd "${serviceConfigDir}"
-      docker compose ps
+      docker compose --env-file /dev/null ps
     '';
   };
 
@@ -117,7 +151,7 @@ let
     runtimeInputs = [ pkgs.docker ];
     text = ''
       cd "${serviceConfigDir}"
-      docker compose logs -f
+      docker compose --env-file /dev/null logs -f
     '';
   };
 
@@ -297,33 +331,34 @@ let
 
   # Generate borgmatic config for a service
   # Uses HETZNER_ACCOUNT_PLACEHOLDER which is replaced at runtime with real account ID from 1Password
-  mkBorgmaticConfig = {
-    service,
-    subAccount,
-    sourceDirs,
-    excludePatterns ? [],
-    checkArchives ? false,
-    keepDaily ? 7,
-    keepWeekly ? 4,
-    keepMonthly ? 6,
-    commands ? [],
-  }: {
-    repositories = [{
-      path = "ssh://HETZNER_ACCOUNT_PLACEHOLDER-${subAccount}@HETZNER_ACCOUNT_PLACEHOLDER-${subAccount}.your-storagebox.de:23/./borg-${service}";
-    }];
-    compression = "zstd,6";
-    archive_name_format = "${service}-{now}";
-    ssh_command = sshCommand;
-    source_directories = sourceDirs;
-    exclude_patterns = excludePatterns;
-    keep_daily = keepDaily;
-    keep_weekly = keepWeekly;
-    keep_monthly = keepMonthly;
-    checks = [{ name = "repository"; }] ++ lib.optionals checkArchives [{ name = "archives"; }];
-    check_last = 3;
-  } // lib.optionalAttrs (commands != []) {
-    inherit commands;
-  };
+  mkBorgmaticConfig =
+    { service
+    , subAccount
+    , sourceDirs
+    , excludePatterns ? [ ]
+    , checkArchives ? false
+    , keepDaily ? 7
+    , keepWeekly ? 4
+    , keepMonthly ? 6
+    , commands ? [ ]
+    ,
+    }: {
+      repositories = [{
+        path = "ssh://HETZNER_ACCOUNT_PLACEHOLDER-${subAccount}@HETZNER_ACCOUNT_PLACEHOLDER-${subAccount}.your-storagebox.de:23/./borg-${service}";
+      }];
+      compression = "zstd,6";
+      archive_name_format = "${service}-{now}";
+      ssh_command = sshCommand;
+      source_directories = sourceDirs;
+      exclude_patterns = excludePatterns;
+      keep_daily = keepDaily;
+      keep_weekly = keepWeekly;
+      keep_monthly = keepMonthly;
+      checks = [{ name = "repository"; }] ++ lib.optionals checkArchives [{ name = "archives"; }];
+      check_last = 3;
+    } // lib.optionalAttrs (commands != [ ]) {
+      inherit commands;
+    };
 
   # Docker Compose configuration as structured Nix
   composeConfig = {
@@ -335,7 +370,7 @@ let
       };
       container_name = "borgmatic";
       restart = "unless-stopped";
-      env_file = [ ".env" ];
+      env_file = [{ path = "secrets.env"; format = "raw"; }];
       environment = {
         TZ = "Europe/Berlin";
         BORG_RSH = sshCommand;
@@ -485,30 +520,30 @@ let
   dockerComposeFile = mkDockerComposeYaml "borgmatic" composeConfig;
 
   # Helper to export env vars from container's init process (cron doesn't inherit Docker env)
-  exportBorgEnv = ''eval $(cat /proc/1/environ | tr "\\0" "\\n" | grep "^BORG_" | sed "s/^/export /")'';
-  exportTelegramEnv = ''eval $(cat /proc/1/environ | tr "\\0" "\\n" | grep "^TELEGRAM_" | sed "s/^/export /")'';
+  exportBorgEnv = "python3 /scripts/with-container-env.py BORG_";
+  exportTelegramEnv = "python3 /scripts/with-container-env.py TELEGRAM_";
 
   # Note: Alpine/BusyBox crontab doesn't use username field
   crontabContent = ''
     # Borgmatic backup schedule - run sequentially to avoid resource conflicts
 
     # Immich backup (2TB) - 2 AM daily
-    0 2 * * * ${exportBorgEnv}; /scripts/backup-runner.sh immich
+    0 2 * * * ${exportBorgEnv} /scripts/backup-runner.sh immich
 
     # Jellyfin backup - 4 AM daily
-    0 4 * * * ${exportBorgEnv}; /scripts/backup-runner.sh jellyfin
+    0 4 * * * ${exportBorgEnv} /scripts/backup-runner.sh jellyfin
 
     # Paperless backup - 5 AM daily
-    0 5 * * * ${exportBorgEnv}; /scripts/backup-runner.sh paperless
+    0 5 * * * ${exportBorgEnv} /scripts/backup-runner.sh paperless
 
     # Home Assistant config backup - 5:10 AM daily (after paperless, which finishes in seconds)
-    10 5 * * * ${exportBorgEnv}; /scripts/backup-runner.sh homeassistant
+    10 5 * * * ${exportBorgEnv} /scripts/backup-runner.sh homeassistant
 
     # tt-coach RAG (videos + DB) - 5:20 AM daily
-    20 5 * * * ${exportBorgEnv}; /scripts/backup-runner.sh tt-coach
+    20 5 * * * ${exportBorgEnv} /scripts/backup-runner.sh tt-coach
 
     # Daily backup status report via Telegram - 9 AM
-    0 9 * * * ${exportTelegramEnv}; /scripts/backup-status.sh >> /var/log/borgmatic/status-report.log 2>&1
+    0 9 * * * ${exportTelegramEnv} /scripts/backup-status.sh >> /var/log/borgmatic/status-report.log 2>&1
 
     # Note: media2tb is a one-time archive - run manually with: borgmatic-backup media2tb
   '';
@@ -517,7 +552,8 @@ let
     FROM ${borgmaticImage}
 
     # Install curl for Telegram notifications
-    RUN apk add --no-cache curl
+    RUN apk add --no-cache curl python3
+    COPY scripts/with-container-env.py /scripts/with-container-env.py
 
     # Copy crontab file (Alpine uses /etc/crontabs/root)
     COPY crontab /etc/crontabs/root
@@ -773,6 +809,7 @@ in
   # This avoids the symlink-to-real-file dance that conflicts with Home Manager
   # Note: YAML configs are generated at runtime by borgmatic-start (with secret substitution)
   home.activation.borgmaticWriteFiles = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    if [ -z "''${DRY_RUN_CMD:-}" ]; then
     echo "Writing borgmatic Docker files..."
     $DRY_RUN_CMD mkdir -p "${serviceConfigDir}/config.d" "${serviceConfigDir}/ssh" "${serviceConfigDir}/logs/status" "${serviceConfigDir}/scripts"
 
@@ -798,6 +835,10 @@ in
     SCRIPT
     $DRY_RUN_CMD chmod +x "${serviceConfigDir}/scripts/backup-runner.sh"
 
+    $DRY_RUN_CMD cp ${./with-container-env.py} "${serviceConfigDir}/scripts/with-container-env.py"
     echo "Borgmatic Docker files written"
+    else
+      echo 'Would update Borgmatic Docker files'
+    fi
   '';
 }

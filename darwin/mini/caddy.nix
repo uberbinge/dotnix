@@ -20,7 +20,10 @@ let
     runtimeInputs = [ pkgs._1password-cli caddyWithCloudflare ];
     text = ''
       # Load Cloudflare API token from 1Password
-      CLOUDFLARE_API_TOKEN="$(op read "op://Automation/cloudflare-api-token/credential" 2>/dev/null || echo "")"
+      if ! CLOUDFLARE_API_TOKEN="$(${pkgs.coreutils}/bin/timeout --kill-after=2 20 op read "op://Automation/cloudflare-api-token/credential" 2>/dev/null)"; then
+        echo "ERROR: 1Password read failed or timed out; retry after authorizing it." >&2
+        exit 1
+      fi
       export CLOUDFLARE_API_TOKEN
 
       if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
@@ -41,10 +44,12 @@ let
     text = ''
       CONFIG="${caddyConfigDir}/Caddyfile"
       CLOUDFLARE_API_TOKEN=""
-      for attempt in 1 2 3 4 5; do
-        CLOUDFLARE_API_TOKEN="$(op read "op://Automation/cloudflare-api-token/credential" 2>/dev/null || echo "")"
+      for attempt in 1 2; do
+        if ! CLOUDFLARE_API_TOKEN="$(${pkgs.coreutils}/bin/timeout --kill-after=2 20 op read "op://Automation/cloudflare-api-token/credential" 2>/dev/null)"; then
+          CLOUDFLARE_API_TOKEN=""
+        fi
         [ -n "$CLOUDFLARE_API_TOKEN" ] && break
-        echo "caddy-reload: 1Password not ready (attempt $attempt/5), retrying in 3s" >&2
+        echo "caddy-reload: 1Password not ready (attempt $attempt/2), retrying in 3s" >&2
         sleep 3
       done
       export CLOUDFLARE_API_TOKEN
@@ -52,8 +57,14 @@ let
         echo "caddy-reload: could not read Cloudflare token from 1Password; run caddy-reload manually" >&2
         exit 1
       fi
-      caddy validate --config "$CONFIG" --adapter caddyfile
-      caddy reload --config "$CONFIG" --adapter caddyfile
+      ${pkgs.coreutils}/bin/timeout --kill-after=2 20 caddy validate --config "$CONFIG" --adapter caddyfile
+      ${pkgs.coreutils}/bin/timeout --kill-after=2 20 caddy reload --config "$CONFIG" --adapter caddyfile
+      umask 077
+      STAMP_TMP=$(mktemp "${caddyDataDir}/.last-reloaded-caddyfile.XXXXXX")
+      trap 'rm -f "$STAMP_TMP"' EXIT
+      readlink -f "$CONFIG" > "$STAMP_TMP"
+      mv -f "$STAMP_TMP" "${caddyDataDir}/.last-reloaded-caddyfile"
+      trap - EXIT
       echo "caddy-reload: config reloaded"
     '';
   };
@@ -82,6 +93,9 @@ in
 
     # Common TLS configuration using Cloudflare DNS
     (cloudflare) {
+      # DNS naming is not access control: these services are for the tailnet.
+      @outside not remote_ip 127.0.0.1 ::1 100.64.0.0/10 fd7a:115c:a1e0::/48
+      respond @outside "Tailnet access required" 403
       tls {
         dns cloudflare {env.CLOUDFLARE_API_TOKEN}
       }
@@ -131,18 +145,14 @@ in
   '';
 
   # Caddy only reads its config at startup; a rebuild swaps the Caddyfile symlink but
-  # the long-running process keeps the old config. Reload when the file actually changed.
-  # Never fails the rebuild: a reload problem is reported, the old config keeps serving.
+  # the long-running process keeps the old config. Report a manual reload when changed.
+  # Activation never requests 1Password authorization; the old config keeps serving.
   home.activation.caddyReload = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
     STAMP="${caddyDataDir}/.last-reloaded-caddyfile"
     CURRENT="$(readlink -f "${caddyConfigDir}/Caddyfile" 2>/dev/null || echo "")"
     if [ -n "$CURRENT" ] && [ "$(cat "$STAMP" 2>/dev/null || echo "")" != "$CURRENT" ]; then
       if /usr/bin/curl -sf --max-time 2 http://localhost:2019/config/ >/dev/null 2>&1; then
-        if $DRY_RUN_CMD ${caddyReload}/bin/caddy-reload; then
-          $DRY_RUN_CMD sh -c 'echo "$1" > "$2"' _ "$CURRENT" "$STAMP"
-        else
-          echo "WARNING: Caddy reload failed; still serving the previous config. Run: caddy-reload"
-        fi
+        echo "Caddy configuration changed; existing config remains serving. After unlocking 1Password, run: caddy-reload"
       else
         echo "Caddy admin API not up; launchd start will load the new Caddyfile"
       fi
@@ -161,7 +171,8 @@ in
         "${caddyConfigDir}/Caddyfile"
       ];
       RunAtLoad = true;
-      KeepAlive = true;
+      # Credential failures require deliberate retry; avoid repeated auth prompts.
+      KeepAlive = false;
       WorkingDirectory = caddyDataDir;
       EnvironmentVariables = {
         HOME = config.home.homeDirectory;

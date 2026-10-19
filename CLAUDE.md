@@ -24,7 +24,7 @@ This repository contains a comprehensive multi-platform Nix configuration for ma
 sudo darwin-rebuild switch --flake ~/dev/dotnix#macbook
 ```
 
-Use `--machine macbook` explicitly: username `waqas` still auto-detects as Mini.
+Use `--machine macbook` explicitly: username `waqas` is ambiguous between MacBook and Mini. Bootstrap defaults to a read-only plan; choose `--build-only` or explicit `--activate` after reviewing prerequisites.
 After activation, `hs` uses the macbook target.
 
 #### Work Mac
@@ -51,10 +51,10 @@ sudo darwin-rebuild switch --flake ~/dev/dotnix#mini
 #### Linux/NixOS
 ```bash
 # Home Manager only
-home-manager switch --flake ~/dev/dotnix
+home-manager switch --flake "$HOME/dev/dotnix#waqas.ahmed"
 
 # Full NixOS system
-sudo nixos-rebuild switch --flake ~/dev/dotnix
+sudo nixos-rebuild switch --flake ~/dev/dotnix#nixos
 ```
 
 ## Architecture
@@ -62,22 +62,12 @@ sudo nixos-rebuild switch --flake ~/dev/dotnix
 ### Service Pattern (Mini)
 Each service in `darwin/mini/services/` follows this pattern:
 1. **Docker Compose file**: Managed by Nix, written to `~/.config/media-server/<service>/`
-2. **Start script**: Fetches secrets from 1Password, generates `.env`, starts containers
+2. **Start script**: Fetches secrets from 1Password, generates private atomic `secrets.env`, starts containers
 3. **launchd agent**: Auto-starts service on login
 4. **Management scripts**: start/stop/logs/status/update commands
 
 ### 1Password Secret Pattern
-```bash
-# In start scripts
-DB_PASSWORD=$(op read "op://Private/<item>/password")
-# Validate
-if [ -z "$DB_PASSWORD" ]; then
-  echo "ERROR: Failed to load secret" >&2
-  exit 1
-fi
-# Write to .env (never committed)
-echo "DB_PASSWORD=$DB_PASSWORD" > .env
-```
+Reuse the bounded secret reader in `darwin/mini/lib.nix`. Activation must not fetch optional vault data. Explicit service starts validate values, create private temporary files under `umask 077`, and replace output atomically. Mini Compose requires version 2.30+ for `env_file.format = raw`; do not use shell `eval` or unquoted dotenv interpolation for credentials. Preserve old output on failure and never print secrets. See the synthetic tests and Mini safety documentation.
 
 ## Troubleshooting
 
@@ -95,8 +85,8 @@ op read "op://Private/test-item/password"
 
 ### Rebuild fails with "file not found"
 ```bash
-# Nix flakes only see committed files
-jj file track .
+# Git flakes see tracked files, including tracked local edits. Review new files first.
+git add path/to/reviewed-new-file
 sudo darwin-rebuild switch --flake ~/dev/dotnix#<machine>
 ```
 

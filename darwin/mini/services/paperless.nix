@@ -24,14 +24,25 @@ let
     ${validate1PasswordSecret { secretVar = "SECRET_KEY"; item = "paperless-secret"; field = "notesPlain"; }}
     ${validate1PasswordSecret { secretVar = "DB_PASSWORD"; item = "paperless-db"; }}
 
+    case "$DB_PASSWORD" in
+      *$'\n'*|*$'\r'*) echo "DB_PASSWORD contains a newline; raw env files require single-line values" >&2; exit 1 ;;
+    esac
+    case "$SECRET_KEY" in
+      *$'\n'*|*$'\r'*) echo "SECRET_KEY contains a newline; raw env files require single-line values" >&2; exit 1 ;;
+    esac
+    # Create privately, then replace atomically; never expose a partially written secret.
+    umask 077
+    ENV_TMP=$(mktemp "${serviceConfigDir}/secrets.env.XXXXXX")
+    trap 'rm -f "$ENV_TMP"' EXIT
     # Generate .env file
-    cat > "${serviceConfigDir}/.env" << EOF
+    cat > "$ENV_TMP" << EOF
     # Auto-generated from 1Password - do not edit manually
     POSTGRES_PASSWORD=$DB_PASSWORD
     PAPERLESS_SECRET_KEY=$SECRET_KEY
     PAPERLESS_OCR_LANGUAGE=eng+deu
     EOF
-    chmod 600 "${serviceConfigDir}/.env"
+    mv -f "$ENV_TMP" "${serviceConfigDir}/secrets.env"
+    trap - EXIT
   '';
 
   scripts = mkDockerComposeScripts {
@@ -84,7 +95,7 @@ let
           POSTGRES_DB = "paperless";
           POSTGRES_USER = "paperless";
         };
-        env_file = [ ".env" ];
+        env_file = [{ path = "secrets.env"; format = "raw"; }];
       };
 
       webserver = {
@@ -92,14 +103,14 @@ let
         image = paperlessImage;
         restart = "unless-stopped";
         depends_on = [ "db" "broker" ];
-        ports = [ "8000:8000" ];
+        ports = [ "127.0.0.1:8000:8000" ];
         volumes = [
           "${mediaVolume}/paperless/data:/usr/src/paperless/data"
           "${mediaVolume}/paperless/media:/usr/src/paperless/media"
           "${mediaVolume}/paperless/export:/usr/src/paperless/export"
           "${mediaVolume}/paperless/consume:/usr/src/paperless/consume"
         ];
-        env_file = [ ".env" ];
+        env_file = [{ path = "secrets.env"; format = "raw"; }];
         environment = {
           PAPERLESS_REDIS = "redis://broker:6379";
           PAPERLESS_DBHOST = "db";
@@ -118,8 +129,8 @@ let
       };
     };
 
-    volumes = { redisdata = {}; } // lib.optionalAttrs (!cfg.paperless.useExternalPostgresDataDir) {
-      pgdata = {};
+    volumes = { redisdata = { }; } // lib.optionalAttrs (!cfg.paperless.useExternalPostgresDataDir) {
+      pgdata = { };
     };
   };
 in

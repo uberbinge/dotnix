@@ -103,20 +103,13 @@
   '';
 
   home.activation = {
-    # Use 'run' helper to respect --dry-run mode
-    resetLaunchPad = lib.hm.dag.entryBefore [ "installPackages" ] ''
-      run /usr/bin/defaults write com.apple.dock ResetLaunchPad -bool true
-      verboseEcho "Restarting Dock to reset LaunchPad..."
-      run /usr/bin/killall Dock || true
-    '';
-
     # Install Ghostty terminfo for SSH sessions
     installGhosttyTerminfo = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       GHOSTTY_TERMINFO="/Applications/Ghostty.app/Contents/Resources/terminfo"
       if [ -d "$GHOSTTY_TERMINFO" ]; then
         verboseEcho "Installing Ghostty terminfo..."
-        mkdir -p "$HOME/.terminfo"
-        cp -r "$GHOSTTY_TERMINFO"/* "$HOME/.terminfo/" 2>/dev/null || true
+        run mkdir -p "$HOME/.terminfo"
+        run cp -R "$GHOSTTY_TERMINFO"/. "$HOME/.terminfo/"
       fi
     '';
   };

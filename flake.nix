@@ -51,24 +51,24 @@
           pkgs = import nixpkgs {
             inherit system;
             overlays = [ ncspotOverlay ];
+            config.allowUnfree = true;
           };
           specialArgs = inputs // {
-            inherit system username hostname;
+            inherit system username hostname isNixOS;
             githubUserEmail = "1692495+uberbinge@users.noreply.github.com";
             githubUserName = "uberbinge";
           };
 
-          # Common Home Manager config (reusable across platforms)
+          commonHomeModules = [ ./common/home.nix nixvim.homeModules.nixvim ];
+
+          # Integration wrapper; standalone Home Manager uses the imports directly.
           mkCommonHomeConfig = {
             home-manager.useGlobalPkgs = lib.mkForce true;
             home-manager.useUserPackages = lib.mkForce true;
             home-manager.extraSpecialArgs = specialArgs;
             # Backup conflicting files during migration to declarative management
             home-manager.backupFileExtension = "backup";
-            home-manager.users.${username}.imports = [
-              ./common/home.nix
-              nixvim.homeModules.nixvim
-            ];
+            home-manager.users.${username}.imports = commonHomeModules;
           };
 
           darwinModules = lib.optionalAttrs (system == "aarch64-darwin") {
@@ -76,7 +76,8 @@
               enable = true;
               enableRosetta = true;
               user = username;
-              autoMigrate = true;
+              # Existing installations require a deliberate, separately reviewed migration.
+              autoMigrate = false;
             };
           };
 
@@ -124,10 +125,7 @@
           home-manager.lib.homeManagerConfiguration {
             inherit pkgs;
             extraSpecialArgs = specialArgs;
-            modules = [
-              mkCommonHomeConfig
-              ./linux/home.nix
-            ];
+            modules = commonHomeModules ++ [ ./linux/home.nix ] ++ extraHomeModules;
           };
 
     in

@@ -28,6 +28,19 @@
       description = "Group ID for Docker container permissions";
     };
 
+    localBackup = {
+      sourceVolumeUUID = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Verified UUID of the source media volume; required before local mirroring.";
+      };
+      destinationVolumeUUID = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Verified UUID of the /Volumes/2tb backup volume; required before local mirroring.";
+      };
+    };
+
     onePassword = {
       vault = lib.mkOption {
         type = lib.types.str;

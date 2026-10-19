@@ -29,7 +29,7 @@ let
         "${configDir}:/config"
         "/etc/localtime:/etc/localtime:ro"
       ];
-      ports = [ "8123:8123" ];
+      ports = [ "127.0.0.1:8123:8123" ];
       environment.TZ = "Europe/Berlin";
       restart = "unless-stopped";
       healthcheck = {
@@ -56,6 +56,7 @@ in
   home.file."${serviceConfigDir}/.keep".text = "";
 
   home.activation.homeAssistantCaddyProxyConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    if [ -z "''${DRY_RUN_CMD:-}" ]; then
     CONFIG_FILE="${configDir}/configuration.yaml"
     PACKAGE_DIR="${configDir}/packages"
     PACKAGE_FILE="$PACKAGE_DIR/caddy_proxy.yaml"
@@ -81,6 +82,9 @@ in
       external_url: "https://${cfg.domains.homeAssistant}"
       internal_url: "http://127.0.0.1:8123"
     YAML
+    else
+      echo 'Would update Home Assistant proxy configuration'
+    fi
   '';
 
   # Docker Compose configuration - generated from structured Nix

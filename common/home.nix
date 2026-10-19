@@ -1,4 +1,4 @@
-{ pkgs, lib, username, githubUserEmail, githubUserName, specialArgs, hostname ? null, ... }:
+{ pkgs, lib, username, githubUserEmail, githubUserName, specialArgs, hostname ? null, isNixOS ? false, ... }:
 {
   imports = [
     ../common/scripts.nix
@@ -231,13 +231,17 @@
       # macbook shares its username with mini, so select it by configuration.
       # Keep the existing username-based fallback for other configurations.
       (lib.mkIf pkgs.stdenv.isDarwin {
-        hs = if hostname == "macbook"
+        hs =
+          if hostname == "macbook"
           then "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#macbook"
           else "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#$([[ $(whoami) == 'waqas' ]] && echo mini || echo work)";
       })
 
       (lib.mkIf pkgs.stdenv.isLinux {
-        hs = "cd ~/dev/dotnix && sudo nixos-rebuild switch --flake .#nixos";
+        hs =
+          if isNixOS
+          then "cd ~/dev/dotnix && sudo nixos-rebuild switch --flake .#nixos"
+          else "cd ~/dev/dotnix && home-manager switch --flake .#${username}";
       })
 
       # Nix cleanup - delete generations older than 30 days

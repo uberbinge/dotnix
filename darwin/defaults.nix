@@ -108,6 +108,9 @@
         TrackpadThreeFingerDrag = true;
       };
       "com.apple.driver.AppleBluetoothMultitouch.trackpad" = {
+        Dragging = true;
+        TrackpadThreeFingerHorizSwipeGesture = 0;
+        TrackpadThreeFingerVertSwipeGesture = 0;
         TrackpadThreeFingerDrag = true;
         Clicking = true;
         TrackpadRightClick = true;
