@@ -29,20 +29,19 @@ let
       specialArgs = { };
     }).programs.zsh.shellAliases.hs;
 
-  personalHs = "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#mac-personal";
+  personalHs = "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#macbook";
   legacyDarwinHs = "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#$([[ $(whoami) == 'waqas' ]] && echo mini || echo work)";
   linuxHs = "cd ~/dev/dotnix && sudo nixos-rebuild switch --flake .#nixos";
 in
-assert outputs.darwinConfigurations.mac-personal.specialArgs.username == "waqas";
-assert outputs.darwinConfigurations.mac-personal.specialArgs.hostname == "mac-personal";
-assert outputs.darwinConfigurations.work.specialArgs.username == "waqas.ahmed";
 assert outputs.darwinConfigurations.macbook.specialArgs.username == "waqas";
+assert outputs.darwinConfigurations.macbook.specialArgs.hostname == "macbook";
+assert outputs.darwinConfigurations.work.specialArgs.username == "waqas.ahmed";
+assert !(outputs.darwinConfigurations ? mac-personal);
 assert outputs.darwinConfigurations.mini.specialArgs.username == "waqas";
 assert outputs.darwinConfigurations.default.specialArgs.hostname == "work";
-assert hsFor "mac-personal" "waqas" true == personalHs;
-assert hsFor "mac-personal" "waqas.ahmed" true == personalHs;
+assert hsFor "macbook" "waqas" true == personalHs;
+assert hsFor "macbook" "waqas.ahmed" true == personalHs;
 assert hsFor "mini" "waqas" true == legacyDarwinHs;
-assert hsFor "macbook" "waqas" true == legacyDarwinHs;
 assert hsFor "work" "waqas.ahmed" true == legacyDarwinHs;
 assert hsFor null "waqas" true == legacyDarwinHs;
 assert hsFor null "waqas.ahmed" false == linuxHs;

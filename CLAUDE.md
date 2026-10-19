@@ -10,12 +10,22 @@ This repository contains a comprehensive multi-platform Nix configuration for ma
 
 | Machine | Flake Target | Username | Purpose |
 |---------|--------------|----------|---------|
+| **macbook** | `.#macbook` | `waqas` | Personal MacBook - development environment |
 | **work** | `.#work` | `waqas.ahmed` | Work MacBook - development environment |
 | **mini** | `.#mini` | `waqas` | Mac Mini - media server with services |
 
 ## Common Commands
 
 ### System Building & Updating
+
+#### Personal MacBook
+```bash
+./bootstrap.sh --machine macbook
+sudo darwin-rebuild switch --flake ~/dev/dotnix#macbook
+```
+
+Use `--machine macbook` explicitly: username `waqas` still auto-detects as Mini.
+After activation, `hs` uses the macbook target.
 
 #### Work Mac
 ```bash

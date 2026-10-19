@@ -1,5 +1,5 @@
 # darwin/work/homebrew.nix
-# Development Mac apps shared by work, macbook, and mac-personal.
+# Development Mac apps shared by work and macbook.
 { ... }:
 {
   homebrew = {

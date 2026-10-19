@@ -41,7 +41,6 @@
       # Using builtins.getEnv is impure and breaks flake reproducibility
       usernames = {
         work = "waqas.ahmed";
-        mac-personal = "waqas";
         macbook = "waqas";
         mini = "waqas";
         linux = "waqas.ahmed";
@@ -141,16 +140,6 @@
           system = "aarch64-darwin";
           username = usernames.work;
           hostname = "work";
-          extraDarwinModules = [ ./darwin/work/homebrew.nix ];
-          extraHomeModules = [ ./darwin/work/home.nix ];
-        };
-
-        # Personal Mac configuration, matching work with the local username.
-        # Usage: darwin-rebuild switch --flake .#mac-personal
-        mac-personal = mkConfiguration {
-          system = "aarch64-darwin";
-          username = usernames.mac-personal;
-          hostname = "mac-personal";
           extraDarwinModules = [ ./darwin/work/homebrew.nix ];
           extraHomeModules = [ ./darwin/work/home.nix ];
         };

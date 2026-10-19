@@ -9,7 +9,6 @@ set -e
 #
 # SUPPORTED MACHINES:
 #   work  - Work MacBook (development machine, username waqas.ahmed)
-#   mac-personal - Personal Mac (development machine, username waqas)
 #   macbook - Personal MacBook (development machine, username waqas)
 #   mini  - Mac Mini (media server with Jellyfin, Immich, Paperless, etc.)
 #
@@ -19,7 +18,6 @@ set -e
 #
 #   # Specify machine type explicitly:
 #   ./bootstrap.sh --machine work
-#   ./bootstrap.sh --machine mac-personal
 #   ./bootstrap.sh --machine macbook
 #   ./bootstrap.sh --machine mini
 #
@@ -36,7 +34,7 @@ CONFIG_DIR="$WORK_DIR/dotnix"
 REPO_URL="https://github.com/uberbinge/dotnix.git"
 REPO_SSH="git@github.com:uberbinge/dotnix.git"
 
-# Machine type (work, mac-personal, macbook, or mini); use an explicit flag for mac-personal.
+# Machine type (work, macbook, or mini); use an explicit flag for macbook.
 MACHINE_TYPE=""
 
 # Colors and formatting
@@ -95,8 +93,8 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --machine)
             MACHINE_TYPE="$2"
-            if [[ "$MACHINE_TYPE" != "work" && "$MACHINE_TYPE" != "mac-personal" && "$MACHINE_TYPE" != "macbook" && "$MACHINE_TYPE" != "mini" ]]; then
-                echo "Error: --machine must be 'work', 'mac-personal', 'macbook', or 'mini'"
+            if [[ "$MACHINE_TYPE" != "work" && "$MACHINE_TYPE" != "macbook" && "$MACHINE_TYPE" != "mini" ]]; then
+                echo "Error: --machine must be 'work', 'macbook', or 'mini'"
                 exit 1
             fi
             shift 2
@@ -116,7 +114,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
-            echo "  --machine TYPE  Machine type: 'work', 'mac-personal', 'macbook', or 'mini' (auto-detected if not specified)"
+            echo "  --machine TYPE  Machine type: 'work', 'macbook', or 'mini' (auto-detected if not specified)"
             echo "  --skip-xcode    Skip Xcode Command Line Tools installation"
             echo "  --force         Force reinstall components"
             echo "  --dry-run       Show what would be done without executing"
@@ -233,7 +231,6 @@ show_header() {
     printf "║%*s║\n" $((73 - ${#CURRENT_USER})) ""
     echo "║  Supported machines:                                                        ║"
     echo "║  • work - Work MacBook (development environment)                            ║"
-    echo "║  • mac-personal - Personal Mac (development environment)                    ║"
     echo "║  • macbook - Personal MacBook (development environment)                     ║"
     echo "║  • mini - Mac Mini (media server + services)                                ║"
     echo "║                                                                              ║"
@@ -485,7 +482,7 @@ show_completion() {
     echo -e "${BOLD}Quick verification:${NC}"
     echo "  • Test shell history: Ctrl+R"
     echo "  • Test git access: git status (in any repo)"
-    if [ "$MACHINE_TYPE" = "work" ] || [ "$MACHINE_TYPE" = "mac-personal" ] || [ "$MACHINE_TYPE" = "macbook" ]; then
+    if [ "$MACHINE_TYPE" = "work" ] || [ "$MACHINE_TYPE" = "macbook" ]; then
         echo "  • Test tmux sessionizer: Ctrl+X"
         echo "  • Test development tools: node --version, aws --version"
     fi

@@ -6,6 +6,7 @@ Multi-machine Nix configuration for macOS systems.
 
 | Machine | Purpose | Flake Target |
 |---------|---------|--------------|
+| **macbook** | Personal development MacBook (`waqas`) | `.#macbook` |
 | **work** | Development MacBook | `.#work` |
 | **mini** | Media server (Jellyfin, Immich, Paperless, Home Assistant) | `.#mini` |
 
@@ -18,15 +19,15 @@ sudo xcode-select --install
 # Run bootstrap (auto-detects machine type)
 curl -L https://raw.githubusercontent.com/uberbinge/dotnix/main/bootstrap.sh | bash
 
-# Or specify machine type
-./bootstrap.sh --machine mini
+# Personal Mac: select explicitly (waqas otherwise defaults to mini)
+./bootstrap.sh --machine macbook
 ```
 
 ## Daily Usage
 
 ```bash
 # Rebuild after config changes
-sudo darwin-rebuild switch --flake ~/dev/dotnix#work  # or #mini
+sudo darwin-rebuild switch --flake ~/dev/dotnix#work  # or #macbook / #mini
 
 # Update packages
 nix flake update && sudo darwin-rebuild switch --flake ~/dev/dotnix#work
@@ -38,6 +39,19 @@ bash scripts/public-safety-check.sh
 ## Structure
 
 - `common/` - Shared config (shell, neovim, git)
-- `darwin/work/` - Work Mac specific
+- `darwin/work/` - Shared development Mac apps and packages
 - `darwin/mini/` - Media server services
 - `linux/` - NixOS config
+
+## Personal Mac target migration
+
+The personal target is now `macbook`. If your installed `hs` still uses the retired
+`mac-personal` target, run this once instead of `hs`:
+
+```bash
+sudo darwin-rebuild switch --flake ~/dev/dotnix#macbook
+exec zsh
+```
+
+After successful activation, `hs` selects `macbook`. This target name does not
+change the Mac’s network hostname. Work and Mini target behavior is unchanged.

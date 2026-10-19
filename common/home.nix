@@ -228,11 +228,11 @@
       }
 
       # Platform-specific hs alias using lib.mkIf
-      # mac-personal shares its username with mini, so select it by configuration.
+      # macbook shares its username with mini, so select it by configuration.
       # Keep the existing username-based fallback for other configurations.
       (lib.mkIf pkgs.stdenv.isDarwin {
-        hs = if hostname == "mac-personal"
-          then "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#mac-personal"
+        hs = if hostname == "macbook"
+          then "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#macbook"
           else "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#$([[ $(whoami) == 'waqas' ]] && echo mini || echo work)";
       })
 
