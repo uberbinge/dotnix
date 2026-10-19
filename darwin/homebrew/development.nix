@@ -7,6 +7,9 @@
       # Not currently packaged or not reliably buildable in pinned Nixpkgs.
       "awscurl"
       "opa"
+
+      # Terminal multiplexer for coding agents.
+      "herdr"
     ];
 
     casks = [
