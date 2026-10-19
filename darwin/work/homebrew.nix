@@ -1,5 +1,5 @@
 # darwin/work/homebrew.nix
-# Work Mac ONLY - apps not needed on other machines
+# Development Mac apps shared by work, macbook, and mac-personal.
 { ... }:
 {
   homebrew = {
@@ -7,8 +7,6 @@
       # Productivity (work-specific)
       "caffeine"
       "lunar"
-      # Virtualization & enterprise
-      "jetbrains-toolbox"
 
       # Communication (work requires these)
       "discord"
@@ -19,7 +17,6 @@
       "microsoft-outlook"
 
       # Browsers (need multiple for testing)
-      "arc"
       "brave-browser"
       "firefox"
       "google-chrome"
@@ -28,9 +25,6 @@
 
       # Development (work-specific)
       "zed"
-      "android-platform-tools"
-      "figma"
-      "miro"
     ];
   };
 }
