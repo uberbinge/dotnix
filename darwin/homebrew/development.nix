@@ -28,6 +28,7 @@
       "conftest"
       "regal"
       "glow"
+      "neovim"
 
       # Terminal multiplexer for coding agents.
       "herdr"

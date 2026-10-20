@@ -29,6 +29,10 @@ run = "bash scripts/local-nix.sh doctor"
 description = "Explicitly install the HM-linked global mise runtimes after hs"
 run = "MISE_GLOBAL_CONFIG_FILE=./config/mise/global.toml mise install --yes"
 
+[tasks."health:install-cli"]
+description = "Build hk-cli from the local health-export checkout without copying health data into Nix"
+run = "bash scripts/health/install-cli.sh"
+
 [tasks."ai:install:claude-code"]
 run = "bash scripts/ai/claude-code.sh install"
 [tasks."ai:update:claude-code"]

@@ -28,7 +28,7 @@ stage_script() {
   shasum -a 256 "$output"
 }
 native_launcher() {
-  local name=$1 root=$2 canonical="$HOME/.local/bin/$1" first found other
+  local name=$1 root=$2 canonical="$HOME/.local/bin/$1" first found other root_real launcher_real
   first=$(command -v "$name" 2>/dev/null || true)
   [[ -n $first || -L $canonical ]] || return 1
   [[ $first == "$canonical" && -L $canonical && -e $canonical ]] || die "$name has another PATH owner or invalid native launcher"
@@ -36,7 +36,10 @@ native_launcher() {
   while IFS= read -r other; do
     [[ -z $other || $other == "$canonical" ]] || die "$name has duplicate PATH owner $other"
   done <<< "$found"
-  [[ $(realpath "$canonical") == "$(realpath "$root")"/* ]] || die "$name launcher does not point under $root"
+  [[ -d $root ]] || die "$name owner directory is missing: $root"
+  root_real=$(realpath "$root") || die "$name owner directory cannot be resolved: $root"
+  launcher_real=$(realpath "$canonical") || die "$name launcher cannot be resolved"
+  [[ $launcher_real == "$root_real/"* ]] || die "$name launcher does not point under $root"
   printf '%s\n' "$canonical"
 }
 version_ge() {

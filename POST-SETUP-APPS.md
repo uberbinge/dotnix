@@ -1,19 +1,11 @@
 # Post-Setup Configuration
 
-Use this guide after the first successful `hs` activation (or an explicitly
-reviewed `darwin-rebuild switch`). Bootstrap's default plan and `--build-only`
-mode do not activate the machine. The first activation installs the declared
-Homebrew apps and links Home Manager configuration, including
-`~/.config/dotnix/target`; it does not install mise runtimes or AI CLIs.
-After switching from the old Nix-owned mise to Homebrew, the terminal that ran
-`hs` may retain stale mise functions and hooks. In that terminal, run
-`exec /bin/zsh -l` before any mise task. Then verify
-`whence -p mise` reports `/opt/homebrew/bin/mise`. This reloads shell state;
-it does not install or activate anything. A dangling old shim can remain on
-disk without owning the new executable. The macOS shell config keeps mise's
-shim directory off PATH and uses Brew's executable for activation; installed
-runtime directories still join PATH. Do not remove the old shim as a recovery
-step.
+Start after `hs` (or a reviewed `darwin-rebuild switch`). Bootstrap's plan and
+build-only modes do not activate. Activation applies Homebrew apps and the Home
+Manager target marker; mise runtimes and AI CLIs remain explicit installs.
+After the Nix-to-Brew mise handoff, run `exec /bin/zsh -l` in the old terminal
+to clear inherited hooks. `whence -p mise` should report
+`/opt/homebrew/bin/mise`; old shims are excluded from the interactive PATH.
 
 From `~/dev/dotnix`, verify the local target and then install runtimes
 explicitly:
@@ -24,6 +16,20 @@ bash scripts/local-target.sh    # Reads the target activated on this Mac
 mise run runtimes:install       # Bun, Deno, Go, Node, and Rust
 mise run doctor                 # Local read-only status
 ```
+
+To install the Health Export query client on this Mac, keep the local
+`~/dev/health-export/health-server` checkout and run:
+
+```bash
+mise run health:install-cli
+```
+
+This builds the Go program into `~/.local/bin/hk-cli` from source. It does not
+query the health server, sync records, or install the Mini service. Dotnix sets
+`HEALTH_SERVER_URL` for the client in Home Manager; make sure `~/.local/bin` is
+on your `PATH` before using `hk-cli`. Repeat the task after updating the local
+checkout. The health-export repository currently tracks private data, so it
+must not be added as a Nix flake input or copied into the Nix store.
 
 Choose only the AI CLIs you want on this Mac. These tasks need no host suffix
 and do not sign in, start listeners, or enable the Herdr web UI:
@@ -37,6 +43,11 @@ mise run ai:install:collie
 ```
 
 Complete app sign-ins, permissions, and license prompts yourself.
+
+For Handy, choose a transcription model and grant microphone and accessibility
+access when prompted. Granola requires Google or Microsoft sign-in and prompts
+for calendar, microphone, and system audio access. Review these prompts in each
+app; installation alone does not grant them.
 
 ## 1Password (Required)
 
@@ -102,11 +113,9 @@ mise current            # Bun, Deno, Go, Node, and Rust match config/mise/global
 leftover shims even when the active Brew binary and installed runtime paths
 work; this is separate from the old shell function failure.
 
-Home Manager links the global config but does not install runtimes. To change a
-shared runtime, edit `config/mise/global.toml`, review the diff, apply with
-`hs`, and rerun `mise run runtimes:install`. Run `mise tasks ls` to see optional
-AI update tasks. The repository has no post-install dispatcher; the
-`bootstrap.sh` and `mise.toml` tasks have separate roles.
+To change a shared runtime, edit `config/mise/global.toml`, review the diff,
+apply with `hs`, and rerun `mise run runtimes:install`. Use `mise tasks ls` for
+explicit AI update tasks; no post-install dispatcher runs them automatically.
 Project runtimes and dependency locks belong in their project repositories.
 
 ## Touch ID for sudo
@@ -154,4 +163,8 @@ After applying that reviewed configuration, run `alfred-sites-refresh --work` yo
 
 ## Read-only completion check
 
-Run `mise run doctor` for local status after `hs`. For a more detailed macOS comparison, run `bash scripts/dotnix-doctor.sh --machine "$(bash scripts/local-target.sh)" --plan` from the repository. This compares desired output, available build, active-system link, and declared/installed casks. Socket presence is not authentication; an installed app is not proof it launches; a current-system link is not proof every activation step completed. The doctor never accesses a vault, tests remote SSH, or deletes apps.
+`mise run doctor` reports local status. On macOS,
+`bash scripts/dotnix-doctor.sh --machine "$(bash scripts/local-target.sh)" --plan`
+adds a read-only build and cask comparison. Neither proves app launch,
+authentication, or every activation step; the doctor does not access vaults,
+test remote SSH, or delete apps.

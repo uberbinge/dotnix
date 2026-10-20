@@ -26,8 +26,11 @@ if [[ -n $plugin ]]; then
     local) [[ $(realpath "$(jq -r '.plugin_root' <<< "$plugin")") == "$HOME/.local/share/dotnix/herdr-web-ui" ]] || die 'plugin linked from another checkout' ;;
     *) die 'unrecognized Herdr plugin source' ;;
   esac
+  if [[ $action == install ]]; then
+    echo "Herdr web UI already installed from the verified source (enabled=$(jq -r '.enabled' <<< "$plugin")); existing service state unchanged."
+    exit 0
+  fi
   [[ $(jq -r '.enabled' <<< "$plugin") == false ]] || die 'disable and stop the web UI before scripted changes'
-  if [[ $action == install ]]; then echo 'Herdr web UI already registered disabled.'; exit 0; fi
 elif [[ $action == update ]]; then die 'install Herdr web UI first'
 fi
 dest="$HOME/.local/share/dotnix/herdr-web-ui"

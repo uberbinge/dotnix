@@ -1,9 +1,13 @@
 # Run with: nix-instantiate --eval --strict tests/machine-targets.nix
-# Evaluate only target metadata and shell aliases, without fetching flake inputs.
+# Evaluate target metadata and shell startup, without fetching flake inputs.
 let
   lib = {
     mkIf = condition: attrs: if condition then attrs else { };
-    mkMerge = builtins.foldl' (result: attrs: result // attrs) { };
+    optionalString = condition: value: if condition then value else "";
+    mkMerge = values:
+      if builtins.isString (builtins.head values)
+      then builtins.concatStringsSep "\n" values
+      else builtins.foldl' (result: attrs: result // attrs) { } values;
   };
 
   outputs = (import ../flake.nix).outputs {
@@ -15,8 +19,8 @@ let
     website-opener = { };
   };
 
-  hsForSystem = hostname: username: isDarwin: isNixOS:
-    (import ../common/home.nix {
+  homeForSystem = hostname: username: isDarwin: isNixOS:
+    import ../common/home.nix {
       inherit lib hostname username isNixOS;
       pkgs.stdenv.hostPlatform = {
         inherit isDarwin;
@@ -25,19 +29,16 @@ let
       githubUserEmail = "test@example.com";
       githubUserName = "test";
       specialArgs = { };
-    }).programs.zsh.shellAliases.hs;
+    };
 
+  hsForSystem = hostname: username: isDarwin: isNixOS:
+    (homeForSystem hostname username isDarwin isNixOS).programs.zsh.shellAliases.hs;
   hsFor = hostname: username: isDarwin: hsForSystem hostname username isDarwin false;
   markerFor = hostname: username: isDarwin: isNixOS:
-    (import ../common/home.nix {
-      inherit lib hostname username isNixOS;
-      pkgs.stdenv.hostPlatform = {
-        inherit isDarwin;
-        isLinux = !isDarwin;
-      };
-      githubUserEmail = "test@example.com";
-      githubUserName = "test";
-    }).home.file.".config/dotnix/target".text;
+    (homeForSystem hostname username isDarwin isNixOS).home.file.".config/dotnix/target".text;
+  initFor = hostname: username: isDarwin: isNixOS:
+    (homeForSystem hostname username isDarwin isNixOS).programs.zsh.initContent;
+  has = needle: haystack: builtins.length (builtins.split needle haystack) > 1;
   personalHs = "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#macbook";
   legacyDarwinHs = "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#$([[ $(whoami) == 'waqas' ]] && echo mini || echo work)";
   linuxHs = "cd ~/dev/dotnix && sudo nixos-rebuild switch --flake .#nixos";
@@ -60,4 +61,7 @@ assert markerFor "mini" "waqas" true false == "mini";
 assert markerFor "work" "waqas.ahmed" true false == "work";
 assert markerFor null "waqas.ahmed" false false == "linux-hm";
 assert markerFor null "waqas.ahmed" false true == "nixos";
+assert has "MISE_ACTIVATE_SHIMS=false" (initFor "macbook" "waqas" true false);
+assert has "/opt/homebrew/bin/mise activate zsh" (initFor "macbook" "waqas" true false);
+assert !(has "/opt/homebrew/bin/mise" (initFor null "waqas.ahmed" false false));
 true

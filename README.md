@@ -59,64 +59,27 @@ in the terminal that ran `hs` before invoking mise; its existing functions and
 hooks still refer to the previous executable. Confirm `whence -p mise` is
 `/opt/homebrew/bin/mise`.
 
-Home Manager links `config/mise/global.toml` but does not download runtimes
-during activation. After `hs`, run `mise run runtimes:install` to install the
-requested Bun, Deno, Go, Node, and Rust versions. Edit that TOML file for a
-reviewed global version change, apply with `hs`, then run the task again. Each
-project owns its own `mise.toml`, `mise.lock`, and dependency lockfiles.
-
 ## Tasks and AI tools
 
-The root `mise.toml` defines **tasks only**. It does not pin AI executables.
-Mise is installed by nix-darwin's Homebrew declaration, so these tasks start
-**after** the first `hs`; `bootstrap.sh` needs no mise. Task runs do not install
-missing mise tools implicitly. Inspect commands with `mise tasks ls` and
-`mise run --dry-run TASK`. `mise run check` runs local safety tests without
-installing software. `mise run build` builds only this machine's activated
-flake target without switching; `mise run doctor` inspects only this machine.
-Home Manager writes `~/.config/dotnix/target` during `hs`. Before that marker
-exists, these two tasks fail with guidance to apply the local configuration;
-they never guess from a shared username or choose another host. CI retains
-cross-target evaluation checks.
-On macOS, a read-only detailed plan is available with
-`bash scripts/dotnix-doctor.sh --machine "$(bash scripts/local-target.sh)" --plan`.
-Mise may ask you to trust this reviewed repository config once; use `mise trust`
-after inspecting `mise.toml` and the task scripts. This is a local mise trust
-decision, not a package installation.
+Homebrew owns mise on macOS; Home Manager links `config/mise/global.toml`.
+After the first `hs`, explicitly run `mise run runtimes:install`. Each project
+owns its own `mise.toml`, `mise.lock`, and dependency locks. The root
+`mise.toml` holds tasks only and never auto-installs runtimes for a task.
 
-On development Macs, nix-darwin Homebrew declares Claude Desktop, the current
-ChatGPT desktop app **including Codex**, and Herdr. The app updaters handle
-desktop freshness. `hs` applies those declarations; no second Brewfile or
-installer task owns the apps. Mini keeps only the existing Herdr formula from
-this AI selection. Linux has no Herdr/web UI prerequisite declared.
+`mise run build` and `mise run doctor` use the local Home Manager target marker;
+they fail before activation rather than guess a host. `mise run check` runs
+repository fixtures without installing software. Inspect tasks with
+`mise tasks ls` or `mise run --dry-run TASK`. After reviewing the config,
+`mise trust` may be needed once.
 
-After `hs` and `mise run runtimes:install`, choose individual CLI installs:
-
-```bash
-mise run ai:install:claude-code  # Anthropic native channel/auto-updater
-mise run ai:install:codex-cli    # OpenAI standalone production channel
-mise run ai:install:pi           # official npm package under mise Node
-mise run ai:install:herdr-web-ui # build and link disabled, no listener
-mise run ai:install:collie       # standalone, no bridge startup
-```
-
-These tasks run on the current machine only. Herdr web UI requires macOS and
-its Brew prerequisite. The scripts reject unsupported
-user/platform, PATH ownership conflicts, and unexpected
-sources. Claude Code checks Anthropic's signed release manifest; the Codex and
-Collie official installers check release checksums; Pi uses the official npm
-registry. Install tasks do not sign in, enable a web UI, pair devices, or start
-Collie. Account and permission steps remain interactive.
-
-AI tools use current **production** releases, with no executable version pin
-or periodic update job. Claude Code and desktop apps have native updaters;
-run `mise run ai:update:codex-cli`, `mise run ai:update:pi`,
-`mise run ai:update:herdr`, or `mise run ai:update:herdr-web-ui`
-for explicit updates. Collie's update may restart its bridge, so review its
-exposure and invoke `mise run ai:update:collie --allow-service-restart`
-only deliberately. Update Nix inputs separately with reviewed `nix flake
-update`; inspect the lock diff and build before `hs`. No task removes packages
-or user data. Homebrew declarations stay in nix-darwin.
+Nix-darwin declares desktop apps (Claude, ChatGPT including Codex) and Herdr
+through Homebrew. AI CLI tasks use current production upstream channels, with
+source and PATH-owner checks instead of executable pins; they do not start
+listeners or configure credentials. Herdr web UI is linked disabled on a new
+install and left untouched if already installed. Collie updates require an
+explicit `--allow-service-restart`. See [post-setup commands](POST-SETUP-APPS.md)
+for the ordered installs and manual sign-ins. Review Nix lock changes and
+builds separately before `hs`; no task removes packages or user data.
 
 The migration removes managed Jujutsu and jjui. It does not delete existing
 `.jj` repositories or any user data; Git and GitHub CLI settings remain.

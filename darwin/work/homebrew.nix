@@ -18,6 +18,8 @@
 
       # Productivity (work-specific)
       "caffeine"
+      "granola"
+      "handy"
       "lunar"
 
       # Communication (work requires these)

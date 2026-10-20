@@ -23,6 +23,7 @@ jobs:
           bash scripts/test-bootstrap.sh
           bash scripts/test-doctor.sh
           bash scripts/test-machine-targets.sh
+          bash scripts/test-local-target.sh
           bash scripts/test-ai-safety.sh
           python3 scripts/test-alfred-sites.py
           python3 scripts/test-mini-safety.py

@@ -35,6 +35,10 @@ ln -s "$tmp/store/target" "$marker"
 if (HOME="$tmp/home" PATH="$mock_path" local_target "$marker" "$tmp/store") >/dev/null 2>&1; then
   echo 'FAIL: marker with wrong local user accepted' >&2; exit 1
 fi
+printf 'unknown\n' > "$tmp/store/target"
+if (HOME="$tmp/home" PATH="$mock_path" local_target "$marker" "$tmp/store") >/dev/null 2>&1; then
+  echo 'FAIL: unknown local target accepted' >&2; exit 1
+fi
 if HOME="$tmp/home" PATH="$mock_path" bash "$repo/scripts/local-target.sh" mini >/dev/null 2>&1; then
   echo 'FAIL: public target override accepted' >&2; exit 1
 fi

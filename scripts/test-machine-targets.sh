@@ -36,4 +36,4 @@ fi
 # Pure unit evaluation with mocked module helpers; no inputs are downloaded,
 # packages built, or machine configuration applied.
 nix-instantiate --eval --strict tests/machine-targets.nix
-echo "PASS: generated hs aliases and flake usernames"
+echo "PASS: generated hs aliases, local markers, and shell paths"

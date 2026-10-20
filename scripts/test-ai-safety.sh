@@ -2,7 +2,7 @@
 # Synthetic checks only; no vendor/network/install/activation invocation.
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
-for script in "$repo/scripts/check-target.sh" "$repo/scripts/local-target.sh" "$repo/scripts/local-nix.sh" "$repo/scripts/ai/"*.sh; do bash -n "$script"; done
+for script in "$repo/scripts/local-target.sh" "$repo/scripts/local-nix.sh" "$repo/scripts/ai/"*.sh; do bash -n "$script"; done
 source "$repo/scripts/ai/common.sh"
 
 if (stage_script https://example.invalid/install.sh https://claude.ai/install.sh /dev/null) 2>/dev/null; then
@@ -11,10 +11,6 @@ fi
 if version_ge 1.2.3 1.2.4; then echo 'FAIL: older version counted as current' >&2; exit 1; fi
 version_ge 1.2.4 1.2.3
 if (version_ge beta 1.0.0) 2>/dev/null; then echo 'FAIL: prerelease accepted' >&2; exit 1; fi
-if bash "$repo/scripts/check-target.sh" invalid >/dev/null 2>&1; then
-  echo 'FAIL: unknown host target accepted' >&2; exit 1
-fi
-
 fixture=$(mktemp -d); trap 'rm -rf "$fixture"' EXIT
 mkdir -p "$fixture/home/.local/bin" "$fixture/home/.local/share/collie/current/bin" "$fixture/other"
 printf '#!/bin/sh\n' > "$fixture/home/.local/share/collie/current/bin/collie"
@@ -25,7 +21,11 @@ if (HOME="$fixture/home" PATH="$fixture/other:$fixture/home/.local/bin:$PATH"; n
   echo 'FAIL: PATH collision accepted' >&2; exit 1
 fi
 if (HOME="$fixture/home" PATH="$fixture/home/.local/bin:$PATH"; native_launcher collie "$HOME/.local/share/claude") >/dev/null 2>&1; then
-  echo 'FAIL: wrong symlink owner accepted' >&2; exit 1
+  echo 'FAIL: symlink accepted with missing owner directory' >&2; exit 1
+fi
+mkdir -p "$fixture/home/.local/share/claude"
+if (HOME="$fixture/home" PATH="$fixture/home/.local/bin:$PATH"; native_launcher collie "$HOME/.local/share/claude") >/dev/null 2>&1; then
+  echo 'FAIL: foreign symlink target accepted' >&2; exit 1
 fi
 if bash "$repo/scripts/ai/collie.sh" update macbook >/dev/null 2>&1; then
   echo 'FAIL: Collie update accepted a host argument' >&2; exit 1
@@ -75,7 +75,11 @@ esac
 MOCK
 cat > "$fixture/mock/mise" <<MOCK
 #!/bin/sh
-case "\$1 \$2" in 'which node') echo '$node_prefix/bin/node';; *) exit 71;; esac
+case "\$1 \$2" in
+  'which node') echo '$node_prefix/bin/node';;
+  'which bun') echo '$fixture/home/.local/share/mise/installs/bun/1.4.3/bin/bun';;
+  *) exit 71;;
+esac
 MOCK
 chmod +x "$node_prefix/bin/node" "$node_prefix/bin/npm" "$fixture/mock/mise"
 cat > "$node_prefix/lib/node_modules/@earendil-works/pi-coding-agent/package.json" <<'MOCK'
@@ -93,6 +97,53 @@ chmod +x "$fixture/home/.local/share/collie/current/bin/collie"
 if HOME="$fixture/home" PATH="$mock_path" bash "$repo/scripts/ai/collie.sh" update >/dev/null 2>&1; then
   echo 'FAIL: Collie update accepted without restart acknowledgment' >&2; exit 1
 fi
+# An already registered web UI is an install no-op, even when enabled; update
+# still refuses to alter it. Mocks deny every network or mutation action.
+bun_prefix="$fixture/home/.local/share/mise/installs/bun/1.4.3"
+mkdir -p "$bun_prefix/bin"
+cat > "$bun_prefix/bin/bun" <<'MOCK'
+#!/bin/sh
+echo 1.4.3
+MOCK
+cat > "$fixture/mock/herdr" <<'MOCK'
+#!/bin/sh
+printf '%s\n' "$*" >> "$HERDR_TEST_CALLS"
+case "$*" in
+  --version) echo 'herdr 0.9.5';;
+  'plugin list --json') cat "$HERDR_TEST_INVENTORY";;
+  *) echo 'unexpected Herdr mutation' >&2; exit 71;;
+esac
+MOCK
+cat > "$fixture/mock/curl" <<'MOCK'
+#!/bin/sh
+echo 'unexpected network request' >&2
+exit 71
+MOCK
+cat > "$fixture/mock/bashenv" <<'MOCK'
+command() {
+  if [[ ${1:-} == -v && ${2:-} == herdr ]]; then
+    printf '%s\n' /opt/homebrew/bin/herdr
+  else
+    builtin command "$@"
+  fi
+}
+MOCK
+chmod +x "$bun_prefix/bin/bun" "$fixture/mock/herdr" "$fixture/mock/curl"
+inventory="$fixture/herdr-inventory.json"; calls="$fixture/herdr-calls"
+printf '%s\n' '{"result":{"plugins":[{"plugin_id":"devswha.herdr-web-ui","enabled":true,"source":{"kind":"github","owner":"devswha","repo":"herdr-web-ui"}}]}}' > "$inventory"
+herdr_path="$fixture/mock:$node_prefix/bin:$bun_prefix/bin:/usr/bin:/bin"
+result=$(HOME="$fixture/home" PATH="$herdr_path" BASH_ENV="$fixture/mock/bashenv" HERDR_TEST_INVENTORY="$inventory" HERDR_TEST_CALLS="$calls" bash "$repo/scripts/ai/herdr-web-ui.sh" install)
+[[ $result == *'enabled=true'* && $result == *'existing service state unchanged'* ]] || { echo 'FAIL: existing Herdr plugin was not an install no-op' >&2; exit 1; }
+[[ $(wc -l < "$calls" | tr -d ' ') == 2 ]] || { echo 'FAIL: Herdr install attempted an extra action' >&2; exit 1; }
+if update_result=$(HOME="$fixture/home" PATH="$herdr_path" BASH_ENV="$fixture/mock/bashenv" HERDR_TEST_INVENTORY="$inventory" HERDR_TEST_CALLS="$calls" bash "$repo/scripts/ai/herdr-web-ui.sh" update 2>&1); then
+  echo 'FAIL: Herdr update accepted an enabled plugin' >&2; exit 1
+fi
+[[ $update_result == *'disable and stop the web UI'* ]] || { echo 'FAIL: Herdr update failed before its enabled-plugin guard' >&2; exit 1; }
+printf '%s\n' '{"result":{"plugins":[{"plugin_id":"devswha.herdr-web-ui","enabled":true,"source":{"kind":"github","owner":"foreign","repo":"herdr-web-ui"}}]}}' > "$inventory"
+if foreign_result=$(HOME="$fixture/home" PATH="$herdr_path" BASH_ENV="$fixture/mock/bashenv" HERDR_TEST_INVENTORY="$inventory" HERDR_TEST_CALLS="$calls" bash "$repo/scripts/ai/herdr-web-ui.sh" install 2>&1); then
+  echo 'FAIL: Herdr install accepted a foreign plugin source' >&2; exit 1
+fi
+[[ $foreign_result == *'plugin source is not selected upstream'* ]] || { echo 'FAIL: Herdr install failed before its source guard' >&2; exit 1; }
 cat > "$fixture/mock/uname" <<'MOCK'
 #!/bin/sh
 case "$1" in -s) echo Darwin;; -m) echo x86_64;; esac
