@@ -11,9 +11,6 @@
       # Knowledge management
       "obsidian"
 
-      # AI assistants
-      "chatgpt"
-
       # Security
       "nordvpn"
     ];

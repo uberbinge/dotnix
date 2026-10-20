@@ -275,7 +275,7 @@ let
 
       if [ -z "$SERVICE" ]; then
         echo "Usage: borgmatic-list <service>"
-        echo "Services: immich, jellyfin, paperless, homeassistant, tt-coach"
+        echo "Services: immich, jellyfin, paperless, homeassistant, tt-coach, media2tb"
         exit 1
       fi
 
@@ -294,7 +294,7 @@ let
 
       if [ -z "$SERVICE" ]; then
         echo "Usage: borgmatic-check <service>"
-        echo "Services: immich, jellyfin, paperless, homeassistant, tt-coach, all"
+        echo "Services: immich, jellyfin, paperless, homeassistant, tt-coach, media2tb, all"
         exit 1
       fi
 
@@ -319,7 +319,7 @@ let
 
       if [ -z "$SERVICE" ]; then
         echo "Usage: borgmatic-info <service>"
-        echo "Services: immich, jellyfin, paperless, homeassistant, tt-coach"
+        echo "Services: immich, jellyfin, paperless, homeassistant, tt-coach, media2tb"
         exit 1
       fi
 
@@ -628,10 +628,12 @@ let
     # Telegram API function
     send_telegram() {
         local message="$1"
-        curl -s -X POST "https://api.telegram.org/bot''${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d "chat_id=''${TELEGRAM_CHAT_ID}" \
-            -d "text=''${message}" \
-            -d "parse_mode=HTML" > /dev/null
+        local api_url="https://api.telegram.org/bot''${TELEGRAM_BOT_TOKEN}/sendMessage"
+        printf 'url = "%s"\n' "$api_url" | \
+            curl -q --silent --show-error --config - --request POST \
+                --data-urlencode "chat_id=''${TELEGRAM_CHAT_ID}" \
+                --data-urlencode "text=''${message}" \
+                --data-urlencode "parse_mode=HTML" > /dev/null
     }
 
     # Check if backup ran today for a given config

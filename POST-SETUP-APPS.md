@@ -1,6 +1,42 @@
 # Post-Setup Configuration
 
-After bootstrap completes, configure these apps manually.
+Use this guide after the first successful `hs` activation (or an explicitly
+reviewed `darwin-rebuild switch`). Bootstrap's default plan and `--build-only`
+mode do not activate the machine. The first activation installs the declared
+Homebrew apps and links Home Manager configuration, including
+`~/.config/dotnix/target`; it does not install mise runtimes or AI CLIs.
+After switching from the old Nix-owned mise to Homebrew, the terminal that ran
+`hs` may retain stale mise functions and hooks. In that terminal, run
+`exec /bin/zsh -l` before any mise task. Then verify
+`whence -p mise` reports `/opt/homebrew/bin/mise`. This reloads shell state;
+it does not install or activate anything. A dangling old shim can remain on
+disk without owning the new executable. The macOS shell config keeps mise's
+shim directory off PATH and uses Brew's executable for activation; installed
+runtime directories still join PATH. Do not remove the old shim as a recovery
+step.
+
+From `~/dev/dotnix`, verify the local target and then install runtimes
+explicitly:
+
+```bash
+cd ~/dev/dotnix
+bash scripts/local-target.sh    # Reads the target activated on this Mac
+mise run runtimes:install       # Bun, Deno, Go, Node, and Rust
+mise run doctor                 # Local read-only status
+```
+
+Choose only the AI CLIs you want on this Mac. These tasks need no host suffix
+and do not sign in, start listeners, or enable the Herdr web UI:
+
+```bash
+mise run ai:install:claude-code
+mise run ai:install:codex-cli
+mise run ai:install:pi
+mise run ai:install:herdr-web-ui # Requires the Brew Herdr app and mise runtimes
+mise run ai:install:collie
+```
+
+Complete app sign-ins, permissions, and license prompts yourself.
 
 ## 1Password (Required)
 
@@ -47,13 +83,6 @@ ssh -G git@github.com
 ssh -G legacy.example.org
 ```
 
-## Shell History (Atuin)
-
-```bash
-atuin register  # or: atuin login
-atuin sync
-```
-
 ## GitHub CLI
 
 ```bash
@@ -65,7 +94,27 @@ gh auth login
 ```bash
 ssh-add -l              # Should show 1Password keys
 gh auth status          # GitHub authenticated
+whence -p mise          # /opt/homebrew/bin/mise on macOS
+mise current            # Bun, Deno, Go, Node, and Rust match config/mise/global.toml
 ```
+
+`mise doctor` is available for deeper diagnostics. It can report missing
+leftover shims even when the active Brew binary and installed runtime paths
+work; this is separate from the old shell function failure.
+
+Home Manager links the global config but does not install runtimes. To change a
+shared runtime, edit `config/mise/global.toml`, review the diff, apply with
+`hs`, and rerun `mise run runtimes:install`. Run `mise tasks ls` to see optional
+AI update tasks. The repository has no post-install dispatcher; the
+`bootstrap.sh` and `mise.toml` tasks have separate roles.
+Project runtimes and dependency locks belong in their project repositories.
+
+## Touch ID for sudo
+
+The Darwin configuration enables Touch ID and `pam_reattach`, including sudo
+from persistent tmux sessions. After activation, start a new terminal session
+and run `sudo -k && sudo true`; macOS should offer Touch ID. If it still asks for
+a password, inspect `/etc/pam.d/sudo_local` before changing PAM settings.
 
 ## Mac Mini Services
 
@@ -105,4 +154,4 @@ After applying that reviewed configuration, run `alfred-sites-refresh --work` yo
 
 ## Read-only completion check
 
-Run `bash ~/dev/dotnix/scripts/dotnix-doctor.sh --machine macbook` (choose the actual target). Add `--plan` to compare desired output, available build, active-system link, and declared/installed casks. Socket presence is not authentication; an installed app is not proof it launches; a current-system link is not proof every activation step completed. The doctor never accesses a vault, tests remote SSH, or deletes apps.
+Run `mise run doctor` for local status after `hs`. For a more detailed macOS comparison, run `bash scripts/dotnix-doctor.sh --machine "$(bash scripts/local-target.sh)" --plan` from the repository. This compares desired output, available build, active-system link, and declared/installed casks. Socket presence is not authentication; an installed app is not proof it launches; a current-system link is not proof every activation step completed. The doctor never accesses a vault, tests remote SSH, or deletes apps.

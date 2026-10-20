@@ -1,0 +1,29 @@
+name: Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/install-nix-action@v31
+      - name: Evaluate every target
+        run: nix flake check --all-systems --no-build
+      - name: Build native checks
+        run: nix build .#checks.x86_64-linux.format .#checks.x86_64-linux.flake-eval
+      - name: Run repository tests
+        run: |
+          bash scripts/test-bootstrap.sh
+          bash scripts/test-doctor.sh
+          bash scripts/test-machine-targets.sh
+          bash scripts/test-ai-safety.sh
+          python3 scripts/test-alfred-sites.py
+          python3 scripts/test-mini-safety.py
+          bash scripts/public-safety-check.sh

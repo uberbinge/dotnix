@@ -30,9 +30,15 @@
   };
   nix.settings.auto-optimise-store = false;
   security.pam.services.sudo_local = {
+    # Own sudo_local explicitly. The active machine previously had a stale
+    # file containing pam_tid only, so a successful activation must replace it
+    # with both pam_reattach and pam_tid in that order.
+    enable = true;
     touchIdAuth = true;
     watchIdAuth = false; # Disabled - Swift build fails on nixpkgs
-    reattach = true; # Enable Touch ID in tmux sessions
+    # Reattach sudo to the login bootstrap session so Touch ID also works from
+    # persistent tmux sessions.
+    reattach = true;
   };
 
   # Saved defaults do not prove live input settings. Log out/in after input

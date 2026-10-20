@@ -4,7 +4,8 @@
   home = {
     homeDirectory = "/home/${username}";
     packages = with pkgs; [
-      # Linux-specific packages can be added here if needed
+      aws-sso-cli
+      xclip
     ];
   };
 
@@ -18,6 +19,5 @@
   # Linux-specific shell aliases
   programs.zsh.shellAliases = {
     # Add Linux-specific aliases here if needed
-    # Example: daily = "cd \"$HOME/Documents/Obsidian/\" && claude --continue";
   };
 }

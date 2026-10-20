@@ -9,18 +9,16 @@ let
   outputs = (import ../flake.nix).outputs {
     self = outputs;
     nixpkgs = { inherit lib; };
-    nixpkgs-ncspot = { };
     nix-darwin.lib.darwinSystem = args: args;
     home-manager = { };
     nix-homebrew = { };
-    nixvim = { };
     website-opener = { };
   };
 
   hsForSystem = hostname: username: isDarwin: isNixOS:
     (import ../common/home.nix {
       inherit lib hostname username isNixOS;
-      pkgs.stdenv = {
+      pkgs.stdenv.hostPlatform = {
         inherit isDarwin;
         isLinux = !isDarwin;
       };
@@ -30,6 +28,16 @@ let
     }).programs.zsh.shellAliases.hs;
 
   hsFor = hostname: username: isDarwin: hsForSystem hostname username isDarwin false;
+  markerFor = hostname: username: isDarwin: isNixOS:
+    (import ../common/home.nix {
+      inherit lib hostname username isNixOS;
+      pkgs.stdenv.hostPlatform = {
+        inherit isDarwin;
+        isLinux = !isDarwin;
+      };
+      githubUserEmail = "test@example.com";
+      githubUserName = "test";
+    }).home.file.".config/dotnix/target".text;
   personalHs = "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#macbook";
   legacyDarwinHs = "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#$([[ $(whoami) == 'waqas' ]] && echo mini || echo work)";
   linuxHs = "cd ~/dev/dotnix && sudo nixos-rebuild switch --flake .#nixos";
@@ -47,4 +55,9 @@ assert hsFor "work" "waqas.ahmed" true == legacyDarwinHs;
 assert hsFor null "waqas" true == legacyDarwinHs;
 assert hsFor null "waqas.ahmed" false == "cd ~/dev/dotnix && home-manager switch --flake .#waqas.ahmed";
 assert hsForSystem null "waqas.ahmed" false true == linuxHs;
+assert markerFor "macbook" "waqas" true false == "macbook";
+assert markerFor "mini" "waqas" true false == "mini";
+assert markerFor "work" "waqas.ahmed" true false == "work";
+assert markerFor null "waqas.ahmed" false false == "linux-hm";
+assert markerFor null "waqas.ahmed" false true == "nixos";
 true

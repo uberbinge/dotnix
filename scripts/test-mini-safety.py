@@ -132,6 +132,22 @@ class SafetyTests(unittest.TestCase):
         for name, port in (("immich", 2283), ("paperless", 8000), ("home-assistant", 8123)):
             self.assertIn(f'127.0.0.1:{port}:{port}', (MINI / f"services/{name}.nix").read_text())
 
+    def test_health_covers_every_scheduled_backup(self):
+        source = (MINI / "scripts.nix").read_text()
+        for service in ("immich", "jellyfin", "paperless", "homeassistant", "tt-coach"):
+            self.assertIn(f"check_backup_log {service}", source)
+
+    def test_orchestrator_propagates_partial_failure(self):
+        source = (MINI / "scripts.nix").read_text()
+        self.assertIn('log_error "$failures service(s) failed to start"', source)
+        self.assertIn('log_error "$failures service(s) failed to stop"', source)
+        self.assertGreaterEqual(source.count('if [ "$failures" -gt 0 ]; then'), 2)
+
+    def test_notification_token_is_not_a_curl_argument(self):
+        source = (MINI / "borgmatic.nix").read_text()
+        self.assertIn("curl -q --silent --show-error --config -", source)
+        self.assertNotIn('curl -s -X POST "https://api.telegram.org/bot', source)
+
 
 if __name__ == "__main__":
     unittest.main()

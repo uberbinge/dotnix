@@ -2,6 +2,10 @@
 {
   home.homeDirectory = "/Users/${username}";
 
+  # Brew sqlite is keg-only because macOS provides sqlite3. Keep one visible
+  # sqlite3 owner in the Home Manager profile without a special Brew PATH.
+  home.packages = [ pkgs.sqlite ];
+
   # Agent keys only by default; add explicit host exceptions via settings.
   programs.ssh = {
     enable = true;
@@ -18,69 +22,50 @@
   programs.zsh.initContent = lib.mkAfter ''
     # 1Password SSH Agent override (macOS sets SSH_AUTH_SOCK by default)
     export SSH_AUTH_SOCK="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+
+    telegram() {
+      local bot_token chat_id api_url
+      bot_token=$(op read "op://Automation/telegram-bot/notesPlain" 2>/dev/null)
+      chat_id=$(op read "op://Automation/telegram-chat-id/notesPlain" 2>/dev/null)
+      if [[ -z "$bot_token" || -z "$chat_id" ]]; then
+        echo "❌ Failed to read Telegram credentials from 1Password"
+        return 1
+      fi
+      api_url="https://api.telegram.org/bot''${bot_token}/sendMessage"
+      printf 'url = "%s"\n' "$api_url" | \
+        curl -q --silent --show-error --config - --request POST \
+          --data-urlencode "chat_id=''${chat_id}" \
+          --data-urlencode "text=''${1:-}"
+    }
+
+    toDiscordTest() {
+      local webhook payload
+      webhook=$(op read "op://Automation/discord-test-webhook/notesPlain" 2>/dev/null)
+      if [[ -z "$webhook" ]]; then
+        echo "❌ Failed to read Discord webhook from 1Password"
+        return 1
+      fi
+      payload=$(jq -n --arg content "''${1:-}" '{content: $content}')
+      printf 'url = "%s"\n' "$webhook" | \
+        curl -q --silent --show-error --config - \
+          --header "Content-Type: application/json" \
+          --request POST \
+          --data "$payload"
+    }
   '';
 
   # macOS-specific shell aliases
   programs.zsh.shellAliases = {
-    cl4c = "claude --continue";
-    cl4dc = "claude --dangerously-skip-permissions --continue";
     unset-aws = "unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE";
-    # macOS-specific iCloud Obsidian path
-    daily = "cd \"$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/den/daily\" && cl4c";
   };
 
   imports = [
     ./alfred.nix
   ];
 
-  home.packages = with pkgs; [
-    # Darwin user-scoped CLI tools. These used to be Homebrew formulae, but do
-    # not need to be installed machine-wide on a shared Mac.
-    _1password-cli
-    awscli2
-    golangci-lint
-    conftest
-    regal
-    sqlite
-    gemini-cli
-    crush
-    glow
-
-    # awscurl is still installed by Homebrew, but expose it through the user's
-    # Home Manager profile so /opt/homebrew/bin does not need to be on PATH.
-    (writeShellApplication {
-      name = "awscurl";
-      text = ''
-        exec /opt/homebrew/bin/awscurl "$@"
-      '';
-    })
-
-    # Shared Homebrew app updater. Homebrew remains only for GUI/system apps
-    # and Brew-only formulae.
-    (writeShellApplication {
-      name = "update-homebrew-apps";
-      runtimeInputs = [ ];
-      text = ''
-        echo "Updating shared Homebrew apps and Brew-only formulae..."
-        /opt/homebrew/bin/brew update
-        /opt/homebrew/bin/brew upgrade
-        echo "All apps updated!"
-        echo ""
-        echo "Browser extensions should be preserved automatically"
-      '';
-    })
-
-    # Jujutsu TUI
-    jjui
-  ];
-
   # Package manager security: minimum release age (macOS-specific path)
   home.file."Library/Preferences/pnpm/rc".text = ''
     minimum-release-age=10080
-  '';
-
-  home.file.".local/share/mise/config.toml".text = ''
-    idiomatic_version_file_enable_tools = []
   '';
 
   # Ghostty terminal configuration (installed via Homebrew)

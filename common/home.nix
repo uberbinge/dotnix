@@ -1,8 +1,13 @@
-{ pkgs, lib, username, githubUserEmail, githubUserName, specialArgs, hostname ? null, isNixOS ? false, ... }:
+{ pkgs, lib, username, githubUserEmail, githubUserName, hostname ? null, isNixOS ? false, ... }:
+let
+  clipboardCommand =
+    if pkgs.stdenv.hostPlatform.isDarwin
+    then "pbcopy"
+    else "xclip -selection clipboard";
+in
 {
   imports = [
     ../common/scripts.nix
-    ../common/nixvim.nix
     ../common/vcs.nix
   ];
 
@@ -11,50 +16,46 @@
     username = username;
 
     sessionVariables = {
-      EDITOR = "nvim";
+      EDITOR = "vi";
       HEALTH_SERVER_URL = "https://health.ti.waqas.dev";
     };
 
-    packages = with pkgs; [
-      # Core utilities (not available as programs.*)
-      gnumake
-      coreutils
-      gnused
-
-      # Development tools
-      mise
-      lazygit
-      delta
-      fd
-      yt-dlp
-      rustup
-      jsonnet
-      ncspot
-      deno
-      bun
-      aws-sso-cli
-      cargo-lambda
-      git-lfs
-      gofumpt
-      grpcurl
-      opentofu
-      yq-go
-
-      # Container wrapper scripts using writeShellApplication
-      (writeShellApplication {
-        name = "podman";
-        runtimeInputs = [ docker ];
-        text = ''exec docker "$@"'';
-      })
-
-      (writeShellApplication {
-        name = "podman-compose";
-        runtimeInputs = [ docker-compose ];
-        text = ''exec docker-compose "$@"'';
-      })
-    ];
+    packages = with pkgs;
+      # Linux has no Homebrew owner. Cargo Lambda stays in Nix on macOS: its
+      # Homebrew distribution requires an additional third-party tap.
+      (lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+        gnumake
+        coreutils
+        gnused
+        mise
+        lazygit
+        delta
+        fd
+        yt-dlp
+        jsonnet
+        gnupg # verify Anthropic's signed Claude Code release manifest
+        cargo-lambda
+        git-lfs
+        gofumpt
+        grpcurl
+        opentofu
+        yq-go
+      ]) ++ (lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+        cargo-lambda
+        # Brew's gofumpt formula installs Go as a runtime dependency, which
+        # would compete with mise's Go on PATH.
+        gofumpt
+      ]);
     # Cache for tmux-sessionizer is built lazily on first use - no activation needed
   };
+
+  # Runtimes are installed explicitly with `mise run runtimes:install`, never during HM switch.
+  home.file.".config/mise/config.toml".source = ../config/mise/global.toml;
+  # Local-only mise build/doctor tasks read this Home Manager-owned symlink.
+  home.file.".config/dotnix/target".text =
+    if pkgs.stdenv.hostPlatform.isDarwin then hostname
+    else if isNixOS then "nixos"
+    else "linux-hm";
 
   programs.home-manager.enable = true;
 
@@ -65,15 +66,12 @@
     enable = true;
     settings = {
       git_protocol = "ssh";
-      editor = "nvim";
+      editor = "vi";
     };
   };
   programs.fzf = {
     enable = true;
     enableZshIntegration = true;
-    # Atuin owns Ctrl-R (sourced after fzf); disable fzf's history widget so
-    # the two don't both bind it.
-    historyWidget.command = "";
   };
   programs.jq.enable = true;
 
@@ -81,16 +79,6 @@
     enable = true;
     enableZshIntegration = true;
     options = [ "--cmd" "z" ];
-  };
-
-  programs.atuin = {
-    enable = true;
-    enableZshIntegration = true;
-    settings = {
-      auto_sync = true;
-      sync_frequency = "5m";
-      dialect = "us";
-    };
   };
 
   programs.starship = {
@@ -140,8 +128,25 @@
     initContent = lib.mkMerge [
       # Common shell initialization
       ''
-        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.amp/bin:$PATH"
-        eval "$(mise activate zsh)"
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        ${lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+          # Brew owns standalone Mac CLIs. Keep the HM profile ahead of Brew
+          # for shell tools configured by HM, and deduplicate zsh's path array.
+          typeset -U path
+          path=("$HOME/.local/bin" "$HOME/.cargo/bin" "/etc/profiles/per-user/$USER/bin" /opt/homebrew/bin $path)
+        ''}
+        ${if pkgs.stdenv.hostPlatform.isDarwin then ''
+          # Mise is Brew-owned on macOS. An old Nix-owned shim or shell command
+          # must not select the activation binary after an owner handoff.
+          # Project runtimes are installed explicitly; keep residual shims off
+          # the interactive PATH while real installed tool bins stay active.
+          export MISE_ACTIVATE_SHIMS=false
+          if [[ -x /opt/homebrew/bin/mise ]]; then
+            eval "$(/opt/homebrew/bin/mise activate zsh)"
+          fi
+        '' else ''
+          eval "$(mise activate zsh)"
+        ''}
         setopt AUTO_CD
 
         _tmux_sessionizer_widget() {
@@ -156,35 +161,6 @@
         }
         zle -N _tmux_sessionizer_widget
         bindkey '^F' _tmux_sessionizer_widget
-
-        telegram() {
-          local bot_token
-          local chat_id
-          bot_token=$(op read "op://Automation/telegram-bot/notesPlain" 2>/dev/null)
-          chat_id=$(op read "op://Automation/telegram-chat-id/notesPlain" 2>/dev/null)
-          if [[ -z "$bot_token" || -z "$chat_id" ]]; then
-            echo "❌ Failed to read Telegram credentials from 1Password"
-            return 1
-          fi
-          curl -s -X POST "https://api.telegram.org/bot''${bot_token}/sendMessage" \
-            -d "chat_id=''${chat_id}" \
-            -d "text=$1"
-        }
-
-        toDiscordTest() {
-          local webhook
-          local payload
-          webhook=$(op read "op://Automation/discord-test-webhook/notesPlain" 2>/dev/null)
-          if [[ -z "$webhook" ]]; then
-            echo "❌ Failed to read Discord webhook from 1Password"
-            return 1
-          fi
-          payload=$(jq -n --arg content "$1" '{content: $content}')
-          curl -s -H "Content-Type: application/json" \
-            -X POST \
-            -d "$payload" \
-            "$webhook"
-        }
       ''
     ];
 
@@ -207,10 +183,9 @@
         gp = "git push";
         gl = "git pull";
         c = "clear";
-        zshconfig = "nvim ~/.zshrc";
-        nm = "nvim";
-        vim = "nvim";
-        v = "nvim";
+        zshconfig = "vi ~/.zshrc";
+        vim = "vi";
+        v = "vi";
         rzsh = "exec zsh";
 
         # Mise task shortcuts
@@ -223,21 +198,19 @@
         s = "gst";
         l = "lazygit";
 
-        # Container aliases
-        podman = "docker";
       }
 
       # Platform-specific hs alias using lib.mkIf
       # macbook shares its username with mini, so select it by configuration.
       # Keep the existing username-based fallback for other configurations.
-      (lib.mkIf pkgs.stdenv.isDarwin {
+      (lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
         hs =
           if hostname == "macbook"
           then "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#macbook"
           else "cd ~/dev/dotnix && sudo darwin-rebuild switch --flake .#$([[ $(whoami) == 'waqas' ]] && echo mini || echo work)";
       })
 
-      (lib.mkIf pkgs.stdenv.isLinux {
+      (lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
         hs =
           if isNixOS
           then "cd ~/dev/dotnix && sudo nixos-rebuild switch --flake .#nixos"
@@ -261,13 +234,13 @@
     ];
   };
 
-  # Tmux configuration with vim-like keybindings and improved usability
+  # Tmux configuration with vi-style copy mode and improved usability
   programs.tmux = {
     enable = true;
     keyMode = "vi";
     mouse = true;
     terminal = "tmux-256color";
-    plugins = with pkgs.tmuxPlugins; [ vim-tmux-navigator ];
+    plugins = [ ];
     escapeTime = 0;
     historyLimit = 15000;
     newSession = true;
@@ -287,7 +260,7 @@
       unbind r
       bind r source-file ~/.config/tmux/tmux.conf
 
-      # Resize panes with vim-like keys (repeatable)
+      # Resize panes with home-row keys (repeatable)
       bind -r j resize-pane -D 10  # Resize down
       bind -r k resize-pane -U 10  # Resize up
       bind -r l resize-pane -R 10  # Resize right
@@ -305,16 +278,16 @@
       # Vi mode for copy
       set -g mode-keys vi
       bind -T copy-mode-vi v send -X begin-selection
-      bind -T copy-mode-vi y send -X copy-pipe-and-cancel "pbcopy"
+      bind -T copy-mode-vi y send -X copy-pipe-and-cancel "${clipboardCommand}"
 
       # Mouse drag auto-copies to clipboard
-      bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel "pbcopy"
+      bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel "${clipboardCommand}"
 
       # Natural scrolling (match macOS behavior)
       bind -T copy-mode-vi WheelUpPane send -X scroll-down
       bind -T copy-mode-vi WheelDownPane send -X scroll-up
 
-      set -s focus-event on        # Enable focus events for better integration with vim
+      set -s focus-event on        # Forward terminal focus events to applications
 
       # Enable clickable links (OSC 8 hyperlinks)
       set -ga terminal-features "*:hyperlinks"

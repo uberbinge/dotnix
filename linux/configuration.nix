@@ -45,28 +45,27 @@
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nixpkgs.config.allowUnfree = true;
 
- # Enable the X11 windowing system
- services.xserver.enable = true;
-# Enable basic system packages for GNOME
-environment.systemPackages = with pkgs; [
-  gnome-tweaks
-  dconf-editor
-  firefox
-  xclip
-  adwaita-icon-theme
-];
+  # Enable the X11 windowing system
+  services.xserver.enable = true;
+  # Enable basic system packages for GNOME
+  environment.systemPackages = with pkgs; [
+    gnome-tweaks
+    dconf-editor
+    firefox
+    adwaita-icon-theme
+  ];
 
-# Enable GNOME services
-services.gnome.core-apps.enable = true;
-services.udev.packages = with pkgs; [ gnome-settings-daemon ];
+  # Enable GNOME services
+  services.gnome.core-apps.enable = true;
+  services.udev.packages = with pkgs; [ gnome-settings-daemon ];
 
 
- # Enable the GNOME Desktop Environment
- services.displayManager.gdm.enable = true;
- services.desktopManager.gnome.enable = true;
+  # Enable the GNOME Desktop Environment
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
 
- # Configure keymap in X11
- services.xserver.xkb.layout = "us";
+  # Configure keymap in X11
+  services.xserver.xkb.layout = "us";
 
   # System state version
   system.stateVersion = "24.05";

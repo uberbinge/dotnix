@@ -3,7 +3,19 @@
 { ... }:
 {
   homebrew = {
+    brews = [
+      "just"
+      "helm"
+      "pandoc"
+      "gnupg"
+      "supabase"
+    ];
     casks = [
+      # Desktop Claude and the ChatGPT app containing Codex. Their CLIs have
+      # separate native owners via the repo's per-tool mise tasks.
+      "claude"
+      "chatgpt"
+
       # Productivity (work-specific)
       "caffeine"
       "lunar"

@@ -1,2 +1,54 @@
-[tools]
-go = "latest"
+# Repository workflow only. Language versions live in config/mise/global.toml
+# and individual projects; AI executable versions are intentionally unpinned.
+[settings]
+task.run_auto_install = false
+
+[tasks.check]
+description = "Validate repository configuration and safety fixtures; no installs"
+run = [
+  "mise tasks validate",
+  "bash scripts/test-bootstrap.sh",
+  "bash scripts/test-doctor.sh",
+  "bash scripts/test-machine-targets.sh",
+  "bash scripts/test-local-target.sh",
+  "bash scripts/test-ai-safety.sh",
+  "python3 scripts/test-alfred-sites.py",
+  "python3 scripts/test-mini-safety.py",
+  "bash scripts/public-safety-check.sh",
+]
+
+[tasks.build]
+description = "Build this machine's activated flake target without switching"
+run = "bash scripts/local-nix.sh build"
+
+[tasks.doctor]
+description = "Inspect this machine's activated configuration"
+run = "bash scripts/local-nix.sh doctor"
+
+[tasks."runtimes:install"]
+description = "Explicitly install the HM-linked global mise runtimes after hs"
+run = "MISE_GLOBAL_CONFIG_FILE=./config/mise/global.toml mise install --yes"
+
+[tasks."ai:install:claude-code"]
+run = "bash scripts/ai/claude-code.sh install"
+[tasks."ai:update:claude-code"]
+run = "bash scripts/ai/claude-code.sh update"
+[tasks."ai:install:codex-cli"]
+run = "bash scripts/ai/codex-cli.sh install"
+[tasks."ai:update:codex-cli"]
+run = "bash scripts/ai/codex-cli.sh update"
+[tasks."ai:install:pi"]
+run = "bash scripts/ai/pi.sh install"
+[tasks."ai:update:pi"]
+run = "bash scripts/ai/pi.sh update"
+[tasks."ai:install:herdr-web-ui"]
+run = "bash scripts/ai/herdr-web-ui.sh install"
+[tasks."ai:update:herdr-web-ui"]
+run = "bash scripts/ai/herdr-web-ui.sh update"
+[tasks."ai:update:herdr"]
+run = "bash scripts/ai/herdr.sh update"
+[tasks."ai:install:collie"]
+run = "bash scripts/ai/collie.sh install"
+[tasks."ai:update:collie"]
+usage = 'flag "--allow-service-restart"'
+run = "bash scripts/ai/collie.sh update {% if usage.allow_service_restart %}--allow-service-restart{% endif %}"
