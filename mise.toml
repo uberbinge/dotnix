@@ -30,7 +30,7 @@ description = "Explicitly install the HM-linked global mise runtimes after hs"
 run = "MISE_GLOBAL_CONFIG_FILE=./config/mise/global.toml mise install --yes"
 
 [tasks."health:install-cli"]
-description = "Build hk-cli from the local health-export checkout without copying health data into Nix"
+description = "Install hk-cli from a verified archive or build from the local checkout"
 run = "bash scripts/health/install-cli.sh"
 
 [tasks."ai:install:claude-code"]

@@ -17,19 +17,32 @@ mise run runtimes:install       # Bun, Deno, Go, Node, and Rust
 mise run doctor                 # Local read-only status
 ```
 
-To install the Health Export query client on this Mac, keep the local
-`~/dev/health-export/health-server` checkout and run:
+To install the Health Export query client from a reviewed code-only archive,
+set its absolute local path or HTTPS URL and the SHA-256 from the matching
+`.sha256` file:
+
+```bash
+HK_CLI_ARCHIVE=/absolute/path/to/hk-cli-darwin-arm64.tar.gz \
+HK_CLI_SHA256=<64-character-sha256> mise run health:install-cli
+```
+
+The archive can be built with `health-export/scripts/package-hk-cli.sh`; see
+that repository's `PACKAGING.md`. A remote URL requires a separately published
+artifact. No remote release URL or checksum is pinned here yet.
+
+For the existing local-checkout fallback, run:
 
 ```bash
 mise run health:install-cli
 ```
 
-This builds the Go program into `~/.local/bin/hk-cli` from source. It does not
-query the health server, sync records, or install the Mini service. Dotnix sets
-`HEALTH_SERVER_URL` for the client in Home Manager; make sure `~/.local/bin` is
-on your `PATH` before using `hk-cli`. Repeat the task after updating the local
-checkout. The health-export repository currently tracks private data, so it
-must not be added as a Nix flake input or copied into the Nix store.
+The fallback builds from `~/dev/health-export/health-server` and requires Go.
+Both modes place the binary at `~/.local/bin/hk-cli`; archive mode uses Python 3
+to validate every archive member. Neither mode queries the health
+server, syncs records, or installs the Mini service. Dotnix sets
+`HEALTH_SERVER_URL` and includes `~/.local/bin` on the shell path. The
+health-export repository tracks private data and must not be used as a Nix
+flake input or copied into the Nix store.
 
 Choose only the AI CLIs you want on this Mac. These tasks need no host suffix
 and do not sign in, start listeners, or enable the Herdr web UI:
