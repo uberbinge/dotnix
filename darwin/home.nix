@@ -63,6 +63,23 @@
     ./alfred.nix
   ];
 
+  # Homebrew owns Neovim; Home Manager supplies only its small plugin setup.
+  home.file.".local/share/nvim/site/pack/dotnix/start/plenary.nvim".source = pkgs.vimPlugins.plenary-nvim;
+  home.file.".local/share/nvim/site/pack/dotnix/start/telescope.nvim".source = pkgs.vimPlugins.telescope-nvim;
+  home.file.".config/nvim/init.lua".text = ''
+    vim.g.mapleader = ' '
+
+    vim.cmd.packadd('plenary.nvim')
+    vim.cmd.packadd('telescope.nvim')
+    require('telescope').setup()
+
+    local builtin = require('telescope.builtin')
+    vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = 'Search files' })
+    vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = 'Search by grep' })
+    vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = 'Search buffers' })
+    vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = 'Search help' })
+  '';
+
   # Package manager security: minimum release age (macOS-specific path)
   home.file."Library/Preferences/pnpm/rc".text = ''
     minimum-release-age=10080
