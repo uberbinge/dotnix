@@ -8,8 +8,8 @@ let
 
   cfg = config.services.mediaServer;
   serviceConfigDir = "${cfg.configDir}/immich";
-  immichServerImage = "ghcr.io/immich-app/immich-server:v3.0.1@sha256:46dedfc5848f7313bd6b584ea9f2648057430307aad6de56de968f6710a72cae";
-  immichMachineLearningImage = "ghcr.io/immich-app/immich-machine-learning:v3.0.1@sha256:cb2128c5cbc554fdaa2a036fb4419c808a9f3e0f27170e569dd9e727243da909";
+  immichServerImage = "ghcr.io/immich-app/immich-server:v3.3.5@sha256:485d546a2e31d6a8b4db8423fcba5c109de8c218d93410af115fd1ccfc4352a6";
+  immichMachineLearningImage = "ghcr.io/immich-app/immich-machine-learning:v3.3.5@sha256:5b28c9352c8374b8a1ed96fbdd8d6755fea6e43510ec43fdf6538aa02ea40f56";
   valkeyImage = "docker.io/valkey/valkey:8-bookworm@sha256:fea8b3e67b15729d4bb70589eb03367bab9ad1ee89c876f54327fc7c6e618571";
   immichPostgresImage = "ghcr.io/immich-app/postgres:14-vectorchord0.5.3@sha256:86b806bf558ef4e53b715f32fedec278f4dba5bbc29e3689b6ca85108d62976f";
 
