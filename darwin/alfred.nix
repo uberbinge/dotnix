@@ -27,10 +27,27 @@ let
     (mkTemplate "gh" "https://github.com/{}" braveIcon)
   ] ++ config.programs.alfredWebsiteHelper.extraPersonalSites;
 
-  # Work sites - dynamically generated from 1Password at activation time
-  # No need to define them here since 1Password is the source of truth
+  cfg = config.programs.alfredWebsiteHelper;
+  personalFile = pkgs.writeText "alfred-personal-sites.json" (builtins.toJSON personalSites);
+  refresh = pkgs.writeShellApplication {
+    name = "alfred-sites-refresh";
+    text = ''
+      exec ${pkgs.python3}/bin/python3 ${./alfred-sites.py} \
+        --personal-file ${personalFile} \
+        --op ${pkgs._1password-cli}/bin/op \
+        --account ${lib.escapeShellArg cfg.workAccount} \
+        ${lib.optionalString cfg.enableWorkSites "--allow-work"} "$@"
+    '';
+  };
 in
 {
+  options.programs.alfredWebsiteHelper.enableWorkSites = lib.mkEnableOption
+    "explicit authenticated work-site refresh (never used during activation)";
+  options.programs.alfredWebsiteHelper.workAccount = lib.mkOption {
+    type = lib.types.str;
+    default = "my.1password.eu";
+    description = "1Password account for manually requested work-site refresh.";
+  };
   options.programs.alfredWebsiteHelper.extraPersonalSites = lib.mkOption {
     type = lib.types.listOf (lib.types.submodule {
       options = {
@@ -44,50 +61,11 @@ in
   };
 
   config = {
-    # Generate complete sites.json from 1Password as single source of truth
-    home.activation.generateSitesFromOP = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      sites_file="$HOME/.config/alfred/sites.json"
-      mkdir -p "$HOME/.config/alfred"
-
-      op_cli="${pkgs._1password-cli}/bin/op"
-
-      if [ -x "$op_cli" ]; then
-        # Check if already authenticated (skip if not to avoid prompts during rebuild)
-        if ! "$op_cli" account list --account=my.1password.eu >/dev/null 2>&1; then
-          echo '${builtins.toJSON personalSites}' > "$sites_file"
-          echo "1Password not authenticated, using personal sites only (run 'op signin' to enable work sites)"
-        else
-          echo "Generating Alfred sites from 1Password work-urls..."
-
-          # Get work URLs directly from 1Password JSON structure
-          work_data=$("$op_cli" item get work-urls --account=my.1password.eu --format=json 2>/dev/null || true)
-
-          if [ -n "$work_data" ]; then
-            # Extract work sites using jq and combine with personal sites
-            personal_sites='${builtins.toJSON personalSites}'
-            echo "$personal_sites" | ${pkgs.jq}/bin/jq --argjson work_json "$work_data" '
-              . + [
-                $work_json.fields[] |
-                select(.type == "URL" and .label != null and .value != null) |
-                {
-                  "title": .label,
-                  "arg": .value,
-                  "icon": "'$HOME'/.config/alfred/brave.png"
-                }
-              ]
-            ' > "$sites_file"
-            echo "Alfred sites generated from 1Password"
-          else
-            # Fallback to personal sites only
-            echo '${builtins.toJSON personalSites}' > "$sites_file"
-            echo "Using personal sites only (work-urls not found)"
-          fi
-        fi
-      else
-        # Fallback to personal sites only
-        echo '${builtins.toJSON personalSites}' > "$sites_file"
-        echo "1Password CLI not available, using personal sites only"
-      fi
+    home.packages = [ refresh ];
+    # Initialize public sites only. Never contact 1Password or replace a user's
+    # refreshed list during activation. `run` preserves dry-run semantics.
+    home.activation.initializeAlfredSites = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      run ${refresh}/bin/alfred-sites-refresh --initialize
     '';
 
     # Place icons from local repository (no network dependencies)

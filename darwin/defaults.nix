@@ -87,14 +87,6 @@
           }
         ];
       };
-      "NSGlobalDomain" = {
-        "com.apple.keyboard.modifiermapping.1452-567-0" = [
-          {
-            HIDKeyboardModifierMappingDst = 30064771113;
-            HIDKeyboardModifierMappingSrc = 30064771129;
-          }
-        ];
-      };
       "com.jetbrains.intellij" = { ApplePressAndHoldEnabled = false; };
       "com.jetbrains.intellij-EAP" = { ApplePressAndHoldEnabled = false; };
       "com.google.android.studio-EAP" = { ApplePressAndHoldEnabled = false; };
@@ -116,6 +108,9 @@
         TrackpadThreeFingerDrag = true;
       };
       "com.apple.driver.AppleBluetoothMultitouch.trackpad" = {
+        Dragging = true;
+        TrackpadThreeFingerHorizSwipeGesture = 0;
+        TrackpadThreeFingerVertSwipeGesture = 0;
         TrackpadThreeFingerDrag = true;
         Clicking = true;
         TrackpadRightClick = true;
@@ -125,6 +120,14 @@
       };
       # System preferences - Formats
       "NSGlobalDomain" = {
+        # Caps Lock to Escape remapping
+        "com.apple.keyboard.modifiermapping.1452-567-0" = [
+          {
+            HIDKeyboardModifierMappingDst = 30064771113;
+            HIDKeyboardModifierMappingSrc = 30064771129;
+          }
+        ];
+
         # Temperature: Celsius
         AppleTemperatureUnit = "Celsius";
         # Measurement system: Metric

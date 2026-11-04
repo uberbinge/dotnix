@@ -14,6 +14,13 @@ let
     name = "local-backup-run";
     runtimeInputs = [ pkgs.rsync ];
     text = ''
+      DRY_RUN=false
+      case "''${1:-}" in
+        "") ;;
+        --dry-run) DRY_RUN=true ;;
+        *) echo "Usage: local-backup-run [--dry-run]" >&2; exit 2 ;;
+      esac
+      [ "$#" -le 1 ] || { echo "Too many arguments" >&2; exit 2; }
       SOURCE="${backupSource}"
       DEST="${backupDest}"
       LOG_FILE="${logDir}/backup-$(date +%Y-%m-%d).log"
@@ -21,16 +28,20 @@ let
       echo "Starting local backup: $SOURCE -> $DEST"
       echo "Log file: $LOG_FILE"
 
-      # Check source exists
-      if [ ! -d "$SOURCE" ]; then
-        echo "ERROR: Source directory does not exist: $SOURCE" | tee -a "$LOG_FILE"
+      # Validate both exact, explicitly enrolled volume identities.
+      ${pkgs.python3}/bin/python3 ${./verify-backup-volumes.py} \
+        "${cfg.mediaVolume}" /Volumes/2tb \
+        ${lib.escapeShellArg (if cfg.localBackup.sourceVolumeUUID == null then "" else cfg.localBackup.sourceVolumeUUID)} \
+        ${lib.escapeShellArg (if cfg.localBackup.destinationVolumeUUID == null then "" else cfg.localBackup.destinationVolumeUUID)}
+      if [ ! -d "$SOURCE/library" ] || [ ! -d "$SOURCE/postgres" ]; then
+        echo "ERROR: Refusing mirror: incomplete Immich source" >&2
         exit 1
       fi
-
-      # Check destination drive is mounted
-      if [ ! -d "/Volumes/2tb" ]; then
-        echo "ERROR: Backup drive not mounted: /Volumes/2tb" | tee -a "$LOG_FILE"
-        exit 1
+      if [ "$DRY_RUN" = true ]; then
+        # Do not create destination directories or log files during a preview.
+        rsync -avn --delete --exclude=".DS_Store" --exclude=".Trash" \
+          --exclude="thumbs/" --exclude="encoded-video/" "$SOURCE/" "$DEST/"
+        exit
       fi
 
       # Create destination directory

@@ -112,10 +112,14 @@ in
       Label = "com.jellyfin.server";
       ProgramArguments = [
         jellyfinBin
-        "--datadir" dataDir
-        "--cachedir" cacheDir
-        "--webdir" jellyfinWeb
-        "--ffmpeg" jellyfinFfmpeg
+        "--datadir"
+        dataDir
+        "--cachedir"
+        cacheDir
+        "--webdir"
+        jellyfinWeb
+        "--ffmpeg"
+        jellyfinFfmpeg
       ];
       RunAtLoad = true;
       KeepAlive = true;

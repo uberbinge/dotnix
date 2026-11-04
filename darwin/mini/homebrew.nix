@@ -4,10 +4,10 @@
 {
   homebrew = {
     brews = [
-      "ollama"  # Local embeddings for tt-coach RAG (mxbai-embed-large)
+      "ollama" # Local embeddings for tt-coach RAG (mxbai-embed-large)
     ];
     casks = [
-      "jellyfin"  # Native media server with Apple Silicon optimization
+      "jellyfin" # Native media server with Apple Silicon optimization
     ];
   };
 }

@@ -19,17 +19,28 @@ let
     DB_PASSWORD=${fetch1PasswordSecret { item = "immich-db"; }}
     ${validate1PasswordSecret { secretVar = "DB_PASSWORD"; item = "immich-db"; }}
 
+    case "$DB_PASSWORD" in
+      *$'\n'*|*$'\r'*) echo "DB_PASSWORD contains a newline; raw env files require single-line values" >&2; exit 1 ;;
+    esac
+    # Create privately, then replace atomically; never expose a partially written secret.
+    umask 077
+    ENV_TMP=$(mktemp "${serviceConfigDir}/secrets.env.XXXXXX")
+    trap 'rm -f "$ENV_TMP"' EXIT
     # Generate .env file
-    cat > "${serviceConfigDir}/.env" << EOF
+    cat > "$ENV_TMP" << EOF
     # Auto-generated from 1Password - do not edit manually
     DB_HOSTNAME=immich_postgres
     DB_USERNAME=postgres
     DB_PASSWORD=$DB_PASSWORD
+    POSTGRES_PASSWORD=$DB_PASSWORD
+    POSTGRES_USER=postgres
+    POSTGRES_DB=immich
     DB_DATABASE_NAME=immich
     REDIS_HOSTNAME=immich_redis
     IMMICH_MACHINE_LEARNING_URL=http://immich-machine-learning:3003
     EOF
-    chmod 600 "${serviceConfigDir}/.env"
+    mv -f "$ENV_TMP" "${serviceConfigDir}/secrets.env"
+    trap - EXIT
   '';
 
   scripts = mkDockerComposeScripts {
@@ -49,8 +60,8 @@ let
           "${mediaVolume}/immich/library:/usr/src/app/upload"
           "/etc/localtime:/etc/localtime:ro"
         ];
-        env_file = [ ".env" ];
-        ports = [ "2283:2283" ];
+        env_file = [{ path = "secrets.env"; format = "raw"; }];
+        ports = [ "127.0.0.1:2283:2283" ];
         depends_on = [ "redis" "database" ];
         restart = "unless-stopped";
         healthcheck.disable = false;
@@ -60,7 +71,7 @@ let
         container_name = "immich_machine_learning";
         image = immichMachineLearningImage;
         volumes = [ "model-cache:/cache" ];
-        env_file = [ ".env" ];
+        env_file = [{ path = "secrets.env"; format = "raw"; }];
         restart = "unless-stopped";
       };
 
@@ -74,16 +85,13 @@ let
       database = {
         container_name = "immich_postgres";
         image = immichPostgresImage;
-        env_file = [ ".env" ];
+        env_file = [{ path = "secrets.env"; format = "raw"; }];
         environment = {
-          POSTGRES_PASSWORD = "\${DB_PASSWORD}";
-          POSTGRES_USER = "\${DB_USERNAME}";
-          POSTGRES_DB = "\${DB_DATABASE_NAME}";
           POSTGRES_INITDB_ARGS = "--data-checksums";
         };
         volumes = [ "${mediaVolume}/immich/postgres:/var/lib/postgresql/data" ];
         healthcheck = {
-          test = "pg_isready --dbname=\${DB_DATABASE_NAME} --username=\${DB_USERNAME} || exit 1";
+          test = "pg_isready --dbname=$\${DB_DATABASE_NAME} --username=$\${DB_USERNAME} || exit 1";
           interval = "10s";
           timeout = "5s";
           retries = 5;
@@ -92,7 +100,7 @@ let
       };
     };
 
-    volumes.model-cache = {};
+    volumes.model-cache = { };
   };
 in
 {

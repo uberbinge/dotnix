@@ -28,6 +28,8 @@ let
       JELLYFIN_DOMAIN="${cfg.domains.jellyfin}"
       PAPERLESS_DOMAIN="${cfg.domains.paperless}"
       HOME_DOMAIN="${cfg.domains.homeAssistant}"
+      HEALTH_DOMAIN="${cfg.domains.health}"
+      TT_COACH_DOMAIN="${cfg.domains.ttCoach}"
 
       OK=0
       WARN=0
@@ -315,18 +317,22 @@ let
       check_http Paperless http://127.0.0.1:8000/ '^(200|302|403)$'
       check_http "Home Assistant" http://127.0.0.1:8123/ '^(200|302|400|405)$' warn
       check_http "Health Export" http://127.0.0.1:9876/health '^200$' warn
+      check_http "tt-coach" http://127.0.0.1:5001/ '^(200|302)$' warn
 
       section "Caddy Routes"
       check_caddy_route Immich "$IMMICH_DOMAIN" '^(200|302)$'
       check_caddy_route Jellyfin "$JELLYFIN_DOMAIN" '^(200|302)$'
       check_caddy_route Paperless "$PAPERLESS_DOMAIN" '^(200|302|403)$'
       check_caddy_route "Home Assistant" "$HOME_DOMAIN" '^(200|302)$' warn
+      check_caddy_route "tt-coach" "$TT_COACH_DOMAIN" '^(200|302)$' warn
 
       section "DNS"
       check_dns_name "$IMMICH_DOMAIN"
       check_dns_name "$JELLYFIN_DOMAIN"
       check_dns_name "$PAPERLESS_DOMAIN"
       check_dns_name "$HOME_DOMAIN"
+      check_dns_name "$HEALTH_DOMAIN"
+      check_dns_name "$TT_COACH_DOMAIN"
 
       section "Disk"
       check_disk / "System"
@@ -336,6 +342,8 @@ let
       check_backup_log immich
       check_backup_log jellyfin
       check_backup_log paperless
+      check_backup_log homeassistant
+      check_backup_log tt-coach
 
       printf '\nSummary: %b%d OK%b, %b%d WARN%b, %b%d FAIL%b\n' \
         "$green" "$OK" "$nc" "$yellow" "$WARN" "$nc" "$red" "$FAIL" "$nc"
@@ -393,19 +401,35 @@ in
         }
 
         start_all() {
+          local failures=0
           log_info "Starting all media services..."
           for service in $SERVICES; do
-            start_service "$service" || log_warn "Failed to start $service"
+            if ! start_service "$service"; then
+              log_warn "Failed to start $service"
+              failures=$((failures + 1))
+            fi
           done
-          log_info "All services started!"
+          if [ "$failures" -gt 0 ]; then
+            log_error "$failures service(s) failed to start"
+            return 1
+          fi
+          log_info "All services started successfully"
         }
 
         stop_all() {
+          local failures=0
           log_info "Stopping all media services..."
           for service in $SERVICES; do
-            stop_service "$service" || log_warn "Failed to stop $service"
+            if ! stop_service "$service"; then
+              log_warn "Failed to stop $service"
+              failures=$((failures + 1))
+            fi
           done
-          log_info "All services stopped!"
+          if [ "$failures" -gt 0 ]; then
+            log_error "$failures service(s) failed to stop"
+            return 1
+          fi
+          log_info "All services stopped successfully"
         }
 
         status() {
@@ -505,7 +529,7 @@ in
         log_info() { echo -e "''${GREEN}[INFO]''${NC} $1"; }
 
         case "''${1:-}" in
-          immich|jellyfin|paperless)
+          immich|jellyfin|paperless|homeassistant|tt-coach|media2tb)
             log_info "Running $1 backup using borgmatic-backup..."
             borgmatic-backup "$1"
             ;;
@@ -550,6 +574,9 @@ in
             echo "  immich        Run backup for Immich"
             echo "  jellyfin      Run backup for Jellyfin"
             echo "  paperless     Run backup for Paperless"
+            echo "  homeassistant Run backup for Home Assistant"
+            echo "  tt-coach      Run backup for tt-coach"
+            echo "  media2tb      Run the one-time 2TB archive"
             echo "  all           Run backup for all services"
             echo "  list <svc>    List archives for a service"
             echo "  check <svc>   Check repository integrity"

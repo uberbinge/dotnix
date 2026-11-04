@@ -1,20 +1,7 @@
 # darwin/work/home.nix
-# Work Mac user-scoped packages. These used to be Homebrew formulae, but do not
-# need to be installed machine-wide on a shared Mac.
+# Firebase's Brew formula adds a globally visible Node dependency. Keep this
+# one development CLI inside the Nix user profile; other dev CLIs use Brew.
 { pkgs, ... }:
 {
-  home.packages = with pkgs; [
-    # Build & deployment
-    just
-    kubernetes-helm
-
-    # Document processing
-    pandoc
-    gnupg
-
-    # Development tools
-    firebase-tools
-    supabase-cli
-    opencode
-  ];
+  home.packages = [ pkgs.firebase-tools ];
 }

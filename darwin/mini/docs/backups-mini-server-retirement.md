@@ -29,3 +29,19 @@
 
 Do not delete local secret files, Docker volumes, Borg repositories, or backup
 archives as part of retirement without explicit approval.
+
+## Startup and safety behavior
+
+Mini services wait up to roughly 105 seconds (including termination grace periods) for Docker, then fail with an explicit manual retry command. Each 1Password read is limited to 20 seconds plus a two-second termination grace period. Unlock/authorize 1Password yourself, then rerun the service start command; activation never grants access. Activation never invokes the Caddy secret-fetching reload command: it reports `caddy-reload` when needed and leaves the previous configuration serving. That manual command makes at most two bounded attempts and records its successful reload atomically. Caddy launchd startup is one-shot (KeepAlive=false) to prevent repeated authentication prompts on failure; restart manually with `launchctl kickstart gui/$(id -u)/com.caddyserver.caddy` after prerequisites are ready. Automatic crash restarts are consequently disabled.
+
+Immich, Paperless and Home Assistant publish their backend ports only on loopback. Caddy permits loopback and Tailscale address ranges and rejects other client addresses. Direct LAN access to those backends is intentionally removed; test tailnet access after applying on Mini. DNS names alone are not an access control.
+
+Borgmatic is an explicit exception to the Mac interactive SSH agent policy: its container uses a dedicated backup key exported at runtime to a private host directory. Generated secret files are created privately and replaced atomically. No existing credentials are deleted by these changes. Container cron copies selected environment values as data, never shell code.
+
+The local Immich mirror checks exact mounted paths, distinct volume UUIDs, and expected library/postgres directories before rsync --delete. Both `services.mediaServer.localBackup.sourceVolumeUUID` and `destinationVolumeUUID` must be explicitly enrolled from verified disks using `diskutil info -plist PATH`; unset values fail closed. Replacing or swapping disks requires reviewing their identities and updating these options. Run `local-backup-run --dry-run` before the first mirror; it does not create directories or logs. The mirror is not a database-consistent snapshot or a substitute for tested logical restores.
+
+Dry-run activation does not write the generated Borgmatic or Home Assistant files. Run `python3 scripts/test-mini-safety.py` for synthetic safety checks. Local health-export and tt-coach repositories/binaries still need manual provisioning; this configuration does not create them.
+
+Docker Compose 2.30 or newer is required for `env_file.format = raw`. Runtime credentials now use `secrets.env`, distinct from project `.env`, and commands suppress automatic project dotenv loading. Dollar signs, quotes and backslashes remain literal. Newline-containing values are rejected explicitly rather than misparsed. Old `.env` files are left untouched for manual review; no private keys or credentials are removed automatically.
+
+Raw environment-file behavior is documented in the [Docker Compose service reference](https://docs.docker.com/reference/compose-file/services/#format).

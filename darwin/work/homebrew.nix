@@ -1,14 +1,26 @@
 # darwin/work/homebrew.nix
-# Work Mac ONLY - apps not needed on other machines
+# Development Mac apps shared by work and macbook.
 { ... }:
 {
   homebrew = {
+    brews = [
+      "just"
+      "helm"
+      "pandoc"
+      "gnupg"
+      "supabase"
+    ];
     casks = [
+      # Desktop Claude and the ChatGPT app containing Codex. Their CLIs have
+      # separate native owners via the repo's per-tool mise tasks.
+      "claude"
+      "chatgpt"
+
       # Productivity (work-specific)
       "caffeine"
+      "granola"
+      "handy"
       "lunar"
-      # Virtualization & enterprise
-      "jetbrains-toolbox"
 
       # Communication (work requires these)
       "discord"
@@ -19,7 +31,6 @@
       "microsoft-outlook"
 
       # Browsers (need multiple for testing)
-      "arc"
       "brave-browser"
       "firefox"
       "google-chrome"
@@ -28,9 +39,6 @@
 
       # Development (work-specific)
       "zed"
-      "android-platform-tools"
-      "figma"
-      "miro"
     ];
   };
 }

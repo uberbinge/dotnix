@@ -3,9 +3,6 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
-    # Pinned to the last rev where ncspot builds on aarch64-darwin; newer
-    # unstable crashes the linker. Overlaid onto ncspot only (see below).
-    nixpkgs-ncspot.url = "github:nixos/nixpkgs/e8273b29fe1390ec8d4603f2477357555291432e";
     nix-darwin = {
       url = "github:lnl7/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -15,27 +12,17 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-homebrew.url = "github:zhaofengli-wip/nix-homebrew";
-    nixvim = {
-      url = "github:nix-community/nixvim";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     website-opener = {
       url = "github:uberbinge/alfred-website-helper";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = inputs@{ self, nixpkgs, nixpkgs-ncspot, nix-darwin, home-manager, nix-homebrew, nixvim, website-opener }:
+  outputs = inputs@{ self, nixpkgs, nix-darwin, home-manager, nix-homebrew, website-opener }:
     let
       lib = nixpkgs.lib;
       systems = [ "aarch64-darwin" "aarch64-linux" "x86_64-linux" ];
       forAllSystems = lib.genAttrs systems;
-
-      # Source ncspot from a pinned older nixpkgs; current unstable fails to
-      # link it on aarch64-darwin (ld: Trace/BPT trap: 5).
-      ncspotOverlay = final: prev: {
-        ncspot = nixpkgs-ncspot.legacyPackages.${prev.system}.ncspot;
-      };
 
       # Username configuration - explicit per-machine for reproducibility
       # Using builtins.getEnv is impure and breaks flake reproducibility
@@ -50,25 +37,24 @@
         let
           pkgs = import nixpkgs {
             inherit system;
-            overlays = [ ncspotOverlay ];
+            config.allowUnfree = true;
           };
           specialArgs = inputs // {
-            inherit system username hostname;
+            inherit system username hostname isNixOS;
             githubUserEmail = "1692495+uberbinge@users.noreply.github.com";
             githubUserName = "uberbinge";
           };
 
-          # Common Home Manager config (reusable across platforms)
+          commonHomeModules = [ ./common/home.nix ];
+
+          # Integration wrapper; standalone Home Manager uses the imports directly.
           mkCommonHomeConfig = {
             home-manager.useGlobalPkgs = lib.mkForce true;
             home-manager.useUserPackages = lib.mkForce true;
             home-manager.extraSpecialArgs = specialArgs;
             # Backup conflicting files during migration to declarative management
             home-manager.backupFileExtension = "backup";
-            home-manager.users.${username}.imports = [
-              ./common/home.nix
-              nixvim.homeModules.nixvim
-            ];
+            home-manager.users.${username}.imports = commonHomeModules;
           };
 
           darwinModules = lib.optionalAttrs (system == "aarch64-darwin") {
@@ -76,7 +62,8 @@
               enable = true;
               enableRosetta = true;
               user = username;
-              autoMigrate = true;
+              # Existing installations require a deliberate, separately reviewed migration.
+              autoMigrate = false;
             };
           };
 
@@ -106,7 +93,6 @@
             {
               inherit system specialArgs;
               modules = [
-                { nixpkgs.overlays = [ ncspotOverlay ]; }
                 ./darwin/configuration.nix
                 home-manager.darwinModules.home-manager
                 mkCommonHomeConfig
@@ -124,10 +110,7 @@
           home-manager.lib.homeManagerConfiguration {
             inherit pkgs;
             extraSpecialArgs = specialArgs;
-            modules = [
-              mkCommonHomeConfig
-              ./linux/home.nix
-            ];
+            modules = commonHomeModules ++ [ ./linux/home.nix ] ++ extraHomeModules;
           };
 
     in
@@ -179,8 +162,6 @@
         isNixOS = true;
       };
 
-      darwinPackages = self.darwinConfigurations.default.pkgs;
-
       # Add a devShell for each system
       devShells = forAllSystems (system:
         let pkgs = import nixpkgs { inherit system; };
@@ -199,8 +180,22 @@
 
       # Flake checks for CI validation
       checks = forAllSystems (system:
-        let pkgs = import nixpkgs { inherit system; };
-        in {
+        let
+          pkgs = import nixpkgs { inherit system; };
+          evaluatedTargets =
+            if system == "aarch64-darwin" then
+              map
+                (name: self.darwinConfigurations.${name}.system.drvPath)
+                [ "work" "macbook" "mini" ]
+            else if system == "aarch64-linux" then
+              [
+                self.homeConfigurations.${usernames.linux}.activationPackage.drvPath
+                self.nixosConfigurations.nixos.config.system.build.toplevel.drvPath
+              ]
+            else
+              [ self.devShells.${system}.default.drvPath ];
+        in
+        {
           # Check that all Nix files are properly formatted
           format = pkgs.runCommand "check-format"
             {
@@ -212,9 +207,14 @@
             touch $out
           '';
 
-          # Validate flake evaluation (catches syntax errors)
-          flake-eval = pkgs.runCommand "check-flake-eval" { } ''
-            echo "Flake evaluation successful"
+          # Force each machine target to evaluate to a derivation path.
+          flake-eval = pkgs.runCommand "check-flake-eval"
+            {
+              targets = builtins.toJSON (
+                map builtins.unsafeDiscardStringContext evaluatedTargets
+              );
+            } ''
+            test -n "$targets"
             touch $out
           '';
         }
