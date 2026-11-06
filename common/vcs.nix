@@ -75,6 +75,9 @@
       # Automatically setup remote tracking for new branches
       push.autoSetupRemote = true;
 
+      # Rebase local commits onto upstream on pull instead of failing on divergence
+      pull.rebase = true;
+
       # Default branch for new repos
       init.defaultBranch = "main";
     };
