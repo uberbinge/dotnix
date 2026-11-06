@@ -6,6 +6,12 @@
   # sqlite3 owner in the Home Manager profile without a special Brew PATH.
   home.packages = [ pkgs.sqlite ];
 
+  # Force op to use 1Password desktop app integration. op decides by reading the
+  # app's settings.json in its Group Container, which macOS blocks for
+  # terminals without access (e.g. Rex Server), so op falls back to requiring
+  # `eval $(op signin)` per shell.
+  home.sessionVariables.OP_BIOMETRIC_UNLOCK_ENABLED = "true";
+
   # Agent keys only by default; add explicit host exceptions via settings.
   programs.ssh = {
     enable = true;
