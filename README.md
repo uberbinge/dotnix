@@ -61,8 +61,10 @@ hooks still refer to the previous executable. Confirm `whence -p mise` is
 
 ## Tasks and AI tools
 
-Homebrew owns mise on macOS; Home Manager links `config/mise/global.toml`.
-After the first `hs`, explicitly run `mise run runtimes:install`. Each project
+Homebrew owns mise on macOS; Home Manager links `config/mise/global.toml` and
+its checksummed `config/mise/mise.lock`. Both are read-only once linked, so
+`mise use -g` cannot change them. After the first `hs`, explicitly run
+`mise run runtimes:install`, which refuses tools missing from the lock. Each project
 owns its own `mise.toml`, `mise.lock`, and dependency locks. The root
 `mise.toml` holds tasks only and never auto-installs runtimes for a task.
 

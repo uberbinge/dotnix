@@ -4,6 +4,10 @@ let
     if pkgs.stdenv.hostPlatform.isDarwin
     then "pbcopy"
     else "xclip -selection clipboard";
+  homeDir =
+    if pkgs.stdenv.hostPlatform.isDarwin
+    then "/Users/${username}"
+    else "/home/${username}";
 in
 {
   imports = [
@@ -51,6 +55,8 @@ in
 
   # Runtimes are installed explicitly with `mise run runtimes:install`, never during HM switch.
   home.file.".config/mise/config.toml".source = ../config/mise/global.toml;
+  # Checksums for the global tools; regenerate with `mise run runtimes:lock`.
+  home.file.".config/mise/mise.lock".source = ../config/mise/mise.lock;
   # Local-only mise build/doctor tasks read this Home Manager-owned symlink.
   home.file.".config/dotnix/target".text =
     if pkgs.stdenv.hostPlatform.isDarwin then hostname
@@ -307,9 +313,12 @@ in
     exclude-newer = "7 days"
   '';
 
+  # scripts/ai/omp.sh mirrors this release age when choosing a version.
+  # Bun global launchers share ~/.local/bin with the other native launchers.
   home.file.".bunfig.toml".text = ''
     [install]
     minimumReleaseAge = 604800
+    globalBinDir = "${homeDir}/.local/bin"
   '';
 
   # Configure IdeaVim for JetBrains IDEs

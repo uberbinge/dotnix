@@ -26,8 +26,12 @@ description = "Inspect this machine's activated configuration"
 run = "bash scripts/local-nix.sh doctor"
 
 [tasks."runtimes:install"]
-description = "Explicitly install the HM-linked global mise runtimes after hs"
-run = "MISE_GLOBAL_CONFIG_FILE=./config/mise/global.toml mise install --yes"
+description = "Explicitly install the HM-linked global mise runtimes after hs, verified against mise.lock"
+run = "MISE_LOCKED=1 MISE_CONFIG_DIR=./config/mise MISE_GLOBAL_CONFIG_FILE=./config/mise/global.toml mise install --yes"
+
+[tasks."runtimes:lock"]
+description = "Regenerate config/mise/mise.lock checksums after editing global.toml"
+run = "MISE_CONFIG_DIR=./config/mise MISE_GLOBAL_CONFIG_FILE=./config/mise/global.toml mise lock --global --platform macos-arm64,linux-arm64 --yes"
 
 [tasks."health:install-cli"]
 description = "Install hk-cli from a verified archive or build from the local checkout"
@@ -45,6 +49,10 @@ run = "bash scripts/ai/codex-cli.sh update"
 run = "bash scripts/ai/pi.sh install"
 [tasks."ai:update:pi"]
 run = "bash scripts/ai/pi.sh update"
+[tasks."ai:install:omp"]
+run = "bash scripts/ai/omp.sh install"
+[tasks."ai:update:omp"]
+run = "bash scripts/ai/omp.sh update"
 [tasks."ai:install:herdr-web-ui"]
 run = "bash scripts/ai/herdr-web-ui.sh install"
 [tasks."ai:update:herdr-web-ui"]

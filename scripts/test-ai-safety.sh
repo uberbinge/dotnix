@@ -77,7 +77,7 @@ cat > "$fixture/mock/mise" <<MOCK
 #!/bin/sh
 case "\$1 \$2" in
   'which node') echo '$node_prefix/bin/node';;
-  'which bun') echo '$fixture/home/.local/share/mise/installs/bun/1.4.3/bin/bun';;
+  'which bun') echo '$fixture/home/.local/share/mise/installs/bun/1.4.4/bin/bun';;
   *) exit 71;;
 esac
 MOCK
@@ -91,6 +91,39 @@ ln -s "$node_prefix/lib/node_modules/@earendil-works/pi-coding-agent/pi" "$node_
 pi_path="$fixture/mock:$node_prefix/bin:/usr/bin:/bin:/etc/profiles/per-user/waqas/bin"
 result=$(HOME="$fixture/home" PATH="$pi_path" bash "$repo/scripts/ai/pi.sh" update)
 [[ $result == *'at or ahead of production'* ]] || { echo 'FAIL: Pi no-downgrade check' >&2; exit 1; }
+# omp: a newer local install is never downgraded, and releases younger than
+# bunfig's minimumReleaseAge are ignored. The mocks deny any Bun mutation.
+omp_bun="$fixture/home/.local/share/mise/installs/bun/1.4.4/bin"
+omp_pkg="$fixture/home/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent"
+mkdir -p "$omp_bun" "$omp_pkg/dist" "$fixture/omp-mock"
+cat > "$omp_bun/bun" <<'MOCK'
+#!/bin/sh
+case "$*" in
+  --version) echo 1.4.4;;
+  'pm bin -g') echo "$HOME/.local/bin";;
+  *) echo 'unexpected bun mutation' >&2; exit 71;;
+esac
+MOCK
+cat > "$fixture/omp-mock/curl" <<'MOCK'
+#!/bin/sh
+case "$*" in
+  *registry.npmjs.org/@oh-my-pi%2Fpi-coding-agent*)
+    echo '{"versions":{"18.13.3":{},"18.13.4":{},"99.0.0":{},"99.1.0-beta.1":{}},"time":{"18.13.3":"2026-01-01T00:00:00.000Z","18.13.4":"2026-01-02T00:00:00.000Z","99.0.0":"2999-01-01T00:00:00.000Z","99.1.0-beta.1":"2026-01-01T00:00:00.000Z"}}';;
+  *) echo 'unexpected download' >&2; exit 71;;
+esac
+MOCK
+printf '{"name":"@oh-my-pi/pi-coding-agent","version":"18.13.5"}\n' > "$omp_pkg/package.json"
+printf '#!/bin/sh\n' > "$omp_pkg/dist/cli.js"
+chmod +x "$omp_bun/bun" "$fixture/omp-mock/curl" "$omp_pkg/dist/cli.js"
+ln -s "$omp_pkg/dist/cli.js" "$fixture/home/.local/bin/omp"
+omp_path="$fixture/omp-mock:$fixture/mock:$omp_bun:$fixture/home/.local/bin:/usr/bin:/bin"
+result=$(HOME="$fixture/home" PATH="$omp_path" bash "$repo/scripts/ai/omp.sh" update)
+[[ $result == *'18.13.5 is at or ahead of production 18.13.4'* ]] || { echo 'FAIL: omp no-downgrade or release-age check' >&2; exit 1; }
+mkdir -p "$fixture/home/.bun/bin"; ln -s "$omp_pkg/dist/cli.js" "$fixture/home/.bun/bin/omp"
+if HOME="$fixture/home" PATH="$omp_path" bash "$repo/scripts/ai/omp.sh" update >/dev/null 2>&1; then
+  echo 'FAIL: omp accepted a stale ~/.bun/bin launcher' >&2; exit 1
+fi
+rm "$fixture/home/.bun/bin/omp"
 mkdir -p "$fixture/home/.local/share/collie/current/bin"
 printf '#!/bin/sh\necho unexpected-service-action >&2; exit 71\n' > "$fixture/home/.local/share/collie/current/bin/collie"
 chmod +x "$fixture/home/.local/share/collie/current/bin/collie"
@@ -99,11 +132,11 @@ if HOME="$fixture/home" PATH="$mock_path" bash "$repo/scripts/ai/collie.sh" upda
 fi
 # An already registered web UI is an install no-op, even when enabled; update
 # still refuses to alter it. Mocks deny every network or mutation action.
-bun_prefix="$fixture/home/.local/share/mise/installs/bun/1.4.3"
+bun_prefix="$fixture/home/.local/share/mise/installs/bun/1.4.4"
 mkdir -p "$bun_prefix/bin"
 cat > "$bun_prefix/bin/bun" <<'MOCK'
 #!/bin/sh
-echo 1.4.3
+echo 1.4.4
 MOCK
 cat > "$fixture/mock/herdr" <<'MOCK'
 #!/bin/sh

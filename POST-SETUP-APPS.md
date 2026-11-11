@@ -13,7 +13,7 @@ explicitly:
 ```bash
 cd ~/dev/dotnix
 bash scripts/local-target.sh    # Reads the target activated on this Mac
-mise run runtimes:install       # Bun, Deno, Go, Node, and Rust
+mise run runtimes:install       # Bun, Deno, Go, Node, Rust, and Linear CLI
 mise run doctor                 # Local read-only status
 ```
 
@@ -51,6 +51,7 @@ and do not sign in, start listeners, or enable the Herdr web UI:
 mise run ai:install:claude-code
 mise run ai:install:codex-cli
 mise run ai:install:pi
+mise run ai:install:omp          # Requires mise Bun; launcher in ~/.local/bin
 mise run ai:install:herdr-web-ui # Requires the Brew Herdr app and mise runtimes
 mise run ai:install:collie
 ```
@@ -119,15 +120,16 @@ gh auth login
 ssh-add -l              # Should show 1Password keys
 gh auth status          # GitHub authenticated
 whence -p mise          # /opt/homebrew/bin/mise on macOS
-mise current            # Bun, Deno, Go, Node, and Rust match config/mise/global.toml
+mise current            # Global tools match config/mise/global.toml
 ```
 
 `mise doctor` is available for deeper diagnostics. It can report missing
 leftover shims even when the active Brew binary and installed runtime paths
 work; this is separate from the old shell function failure.
 
-To change a shared runtime, edit `config/mise/global.toml`, review the diff,
-apply with `hs`, and rerun `mise run runtimes:install`. Use `mise tasks ls` for
+To change a shared runtime, edit `config/mise/global.toml`, run
+`mise run runtimes:lock`, review both diffs, apply with `hs`, and rerun
+`mise run runtimes:install`. Use `mise tasks ls` for
 explicit AI update tasks; no post-install dispatcher runs them automatically.
 Project runtimes and dependency locks belong in their project repositories.
 
