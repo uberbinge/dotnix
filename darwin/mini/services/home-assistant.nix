@@ -9,7 +9,7 @@ let
   cfg = config.services.mediaServer;
   configDir = "${config.home.homeDirectory}/.config/home-assistant-config";
   serviceConfigDir = "${cfg.configDir}/home-assistant";
-  homeAssistantImage = "homeassistant/home-assistant:2025.1.2@sha256:871f84a00db8d05856a70ee3761b138a8e91eb108d61f2fa176e7eeadb5eda03";
+  homeAssistantImage = "homeassistant/home-assistant:2026.11.1@sha256:6785d1eca68747a524c156faae1b139ed415c07357386ae6fe17291986e59e82";
 
   scripts = mkDockerComposeScripts {
     serviceName = "ha";
@@ -63,12 +63,24 @@ in
 
     $DRY_RUN_CMD mkdir -p "$PACKAGE_DIR"
 
-    if [ -f "$CONFIG_FILE" ] && ! grep -q "packages: !include_dir_named packages" "$CONFIG_FILE"; then
-      if ! grep -q "^homeassistant:" "$CONFIG_FILE"; then
-        $DRY_RUN_CMD cp -p "$CONFIG_FILE" "$CONFIG_FILE.before-caddy-proxy"
-        $DRY_RUN_CMD printf '\nhomeassistant:\n  packages: !include_dir_named packages\n' >> "$CONFIG_FILE"
+    # Packages may only set `customize` under `homeassistant:`, so the URLs live in
+    # configuration.yaml itself. Managed keys are rewritten; everything else is kept.
+    if [ -f "$CONFIG_FILE" ]; then
+      TMP_FILE="$(mktemp "$CONFIG_FILE.XXXXXX")"
+      /usr/bin/awk '
+        BEGIN { managed = "  packages: !include_dir_named packages\n  external_url: \"https://${cfg.domains.homeAssistant}\"" }
+        /^homeassistant:/ { print; print managed; inblock = 1; found = 1; next }
+        inblock && /^[^ #]/ { inblock = 0 }
+        inblock && /^  (packages|external_url):/ { next }
+        { print }
+        END { if (!found) { print ""; print "homeassistant:"; print managed } }
+      ' "$CONFIG_FILE" > "$TMP_FILE"
+      if cmp -s "$TMP_FILE" "$CONFIG_FILE"; then
+        rm -f "$TMP_FILE"
       else
-        echo "Home Assistant already has a homeassistant: block; ensure it contains: packages: !include_dir_named packages"
+        cp -p "$CONFIG_FILE" "$CONFIG_FILE.before-nix-urls"
+        chmod 644 "$TMP_FILE"
+        mv "$TMP_FILE" "$CONFIG_FILE"
       fi
     fi
 
@@ -77,10 +89,6 @@ in
       use_x_forwarded_for: true
       trusted_proxies:
         - 192.168.147.1
-
-    homeassistant:
-      external_url: "https://${cfg.domains.homeAssistant}"
-      internal_url: "http://127.0.0.1:8123"
     YAML
     else
       echo 'Would update Home Assistant proxy configuration'

@@ -16,6 +16,8 @@
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
+    # OrbStack's 'orb' host; ssh ignores the include where OrbStack isn't installed
+    includes = [ "~/.orbstack/ssh/config" ];
     settings."*" = {
       IdentityAgent = "\"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"";
       IdentityFile = "none";
