@@ -30,11 +30,13 @@ check_brew_prefix() {
     done
 }
 check_homebrew() {
-    local expected=$1
+    local expected=$1 rosetta=${2:-rosetta}
     check_brew_prefix /opt/homebrew /opt/homebrew/Library "$expected" || return 1
+    # Without the Rosetta prefix, /usr/local is not Homebrew's and is left alone.
+    [ "$rosetta" = no-rosetta ] && return 0
     check_brew_prefix /usr/local /usr/local/Homebrew/Library "$expected"
 }
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
-    [ "$#" = 1 ] || { brew_error 'Usage: check-homebrew.sh EXPECTED_USERNAME'; exit 1; }
-    check_homebrew "$1"
+    [ "$#" = 1 ] || [ "$#" = 2 ] || { brew_error 'Usage: check-homebrew.sh EXPECTED_USERNAME [rosetta|no-rosetta]'; exit 1; }
+    check_homebrew "$@"
 fi

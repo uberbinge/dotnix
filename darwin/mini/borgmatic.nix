@@ -96,7 +96,7 @@ let
   # Management scripts using writeShellApplication
   borgmaticStart = pkgs.writeShellApplication {
     name = "borgmatic-start";
-    runtimeInputs = [ pkgs.docker pkgs._1password-cli ];
+    runtimeInputs = [ pkgs.docker miniLib.op ];
     text = ''
       ready=false
       for ((attempt = 1; attempt <= 15; attempt++)); do
@@ -337,6 +337,9 @@ let
     , sourceDirs
     , excludePatterns ? [ ]
     , checkArchives ? false
+      # Seconds; resumable partial repository check for large repos whose full
+      # check outlives the Storage Box SSH session.
+    , repositoryCheckMaxDuration ? null
     , keepDaily ? 7
     , keepWeekly ? 4
     , keepMonthly ? 6
@@ -354,7 +357,11 @@ let
       keep_daily = keepDaily;
       keep_weekly = keepWeekly;
       keep_monthly = keepMonthly;
-      checks = [{ name = "repository"; }] ++ lib.optionals checkArchives [{ name = "archives"; }];
+      checks = [
+        ({ name = "repository"; } // lib.optionalAttrs (repositoryCheckMaxDuration != null) {
+          max_duration = repositoryCheckMaxDuration;
+        })
+      ] ++ lib.optionals checkArchives [{ name = "archives"; }];
       check_last = 3;
     } // lib.optionalAttrs (commands != [ ]) {
       inherit commands;
@@ -391,6 +398,7 @@ let
         "${mediaVolume}/paperless:/sources/paperless:ro"
         "${cfg.paperless.dbDumpDir}:/sources/paperless-db-dumps:ro"
         "${haConfigDir}:/sources/homeassistant:ro"
+        "${cfg.configDir}/matter-server:/sources/matter-server:ro"
         "${mediaVolume}/tt-coach:/sources/tt-coach:ro"
         "/Volumes/2tb:/sources/media2tb:ro"
       ];
@@ -422,6 +430,8 @@ let
       "**/.Trash/**"
     ];
     checkArchives = true;
+    # Full check of the ~1.7 TB repo gets cut off (~25 min, "Connection closed").
+    repositoryCheckMaxDuration = 1200;
     commands = [
       {
         before = "repository";
@@ -480,7 +490,8 @@ let
     service = "homeassistant";
     # Moved off sub4, which is missing from known_hosts; the old sub4 repo is kept as history
     subAccount = "sub5";
-    sourceDirs = [ "/sources/homeassistant" ];
+    # Matter fabric credentials live in the Matter server, not in HA
+    sourceDirs = [ "/sources/homeassistant" "/sources/matter-server" ];
     excludePatterns = [
       "**/.DS_Store"
       "**/.Trash/**"
@@ -838,7 +849,8 @@ in
     SCRIPT
     $DRY_RUN_CMD chmod +x "${serviceConfigDir}/scripts/backup-runner.sh"
 
-    $DRY_RUN_CMD cp ${./with-container-env.py} "${serviceConfigDir}/scripts/with-container-env.py"
+    # install, not cp: a store copy is read-only and would block the next switch
+    $DRY_RUN_CMD /usr/bin/install -m 0644 ${./with-container-env.py} "${serviceConfigDir}/scripts/with-container-env.py"
     echo "Borgmatic Docker files written"
     else
       echo 'Would update Borgmatic Docker files'

@@ -44,8 +44,13 @@
     onePassword = {
       vault = lib.mkOption {
         type = lib.types.str;
-        default = "Private";
-        description = "1Password vault for secrets";
+        default = "Mini Server";
+        description = "1Password vault for secrets (readable by the Mini's service account)";
+      };
+      serviceAccountKeychainItem = lib.mkOption {
+        type = lib.types.str;
+        default = "op-service-account-mini";
+        description = "Login Keychain service name holding the 1Password service account token";
       };
     };
 

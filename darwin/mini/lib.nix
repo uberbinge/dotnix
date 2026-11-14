@@ -11,6 +11,21 @@ let
   groupId = cfg.groupId;
   vault = cfg.onePassword.vault;
 
+  # `op` for unattended services: uses the read-only service account token from the
+  # login Keychain when present (no approval prompts), else the desktop app integration.
+  op = pkgs.writeShellApplication {
+    name = "op";
+    text = ''
+      if [ -z "''${OP_SERVICE_ACCOUNT_TOKEN:-}" ] &&
+        token="$(/usr/bin/security find-generic-password -s ${cfg.onePassword.serviceAccountKeychainItem} -w 2>/dev/null)" &&
+        [ -n "$token" ]; then
+        export OP_SERVICE_ACCOUNT_TOKEN="$token"
+      fi
+      unset token
+      exec ${pkgs._1password-cli}/bin/op "$@"
+    '';
+  };
+
   # Common Docker Compose management functions using writeShellApplication for validation
   mkDockerComposeScripts =
     { serviceName
@@ -28,7 +43,7 @@ let
     let
       start = pkgs.writeShellApplication {
         name = "${serviceName}-start";
-        runtimeInputs = [ pkgs.docker pkgs._1password-cli ];
+        runtimeInputs = [ pkgs.docker op ];
         text = ''
           # Login ordering is not guaranteed: wait briefly for the container engine.
           ready=false
@@ -129,7 +144,7 @@ let
         WorkingDirectory = serviceConfigDir;
         EnvironmentVariables = {
           HOME = config.home.homeDirectory;
-          PATH = "${pkgs.docker}/bin:${pkgs._1password-cli}/bin:/usr/bin:/bin";
+          PATH = "${pkgs.docker}/bin:${op}/bin:/usr/bin:/bin";
         };
         StandardOutPath = "${config.home.homeDirectory}/.local/share/${serviceName}/launchd.log";
         StandardErrorPath = "${config.home.homeDirectory}/.local/share/${serviceName}/launchd.log";
@@ -162,6 +177,7 @@ let
 in
 {
   inherit
+    op
     mediaVolume
     configDir
     userId

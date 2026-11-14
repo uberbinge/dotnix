@@ -13,14 +13,16 @@ let
   caddyDataDir = "${config.home.homeDirectory}/.local/share/caddy";
   caddyLogDir = "${config.home.homeDirectory}/.local/share/caddy/logs";
   domains = config.services.mediaServer.domains;
+  inherit (import ./lib.nix { inherit config pkgs lib; }) op;
+  vault = config.services.mediaServer.onePassword.vault;
 
   # Wrapper script that loads Cloudflare token from 1Password
   caddyWrapper = pkgs.writeShellApplication {
     name = "caddy-run";
-    runtimeInputs = [ pkgs._1password-cli caddyWithCloudflare ];
+    runtimeInputs = [ op caddyWithCloudflare ];
     text = ''
       # Load Cloudflare API token from 1Password
-      if ! CLOUDFLARE_API_TOKEN="$(${pkgs.coreutils}/bin/timeout --kill-after=2 20 op read "op://Automation/cloudflare-api-token/credential" 2>/dev/null)"; then
+      if ! CLOUDFLARE_API_TOKEN="$(${pkgs.coreutils}/bin/timeout --kill-after=2 20 op read "op://${vault}/cloudflare-api-token/credential" 2>/dev/null)"; then
         echo "ERROR: 1Password read failed or timed out; retry after authorizing it." >&2
         exit 1
       fi
@@ -40,12 +42,12 @@ let
   # and an invalid Caddyfile is rejected before it replaces the running config.
   caddyReload = pkgs.writeShellApplication {
     name = "caddy-reload";
-    runtimeInputs = [ pkgs._1password-cli caddyWithCloudflare ];
+    runtimeInputs = [ op caddyWithCloudflare ];
     text = ''
       CONFIG="${caddyConfigDir}/Caddyfile"
       CLOUDFLARE_API_TOKEN=""
       for attempt in 1 2; do
-        if ! CLOUDFLARE_API_TOKEN="$(${pkgs.coreutils}/bin/timeout --kill-after=2 20 op read "op://Automation/cloudflare-api-token/credential" 2>/dev/null)"; then
+        if ! CLOUDFLARE_API_TOKEN="$(${pkgs.coreutils}/bin/timeout --kill-after=2 20 op read "op://${vault}/cloudflare-api-token/credential" 2>/dev/null)"; then
           CLOUDFLARE_API_TOKEN=""
         fi
         [ -n "$CLOUDFLARE_API_TOKEN" ] && break

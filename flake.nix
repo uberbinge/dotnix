@@ -60,7 +60,7 @@
           darwinModules = lib.optionalAttrs (system == "aarch64-darwin") {
             nix-homebrew = {
               enable = true;
-              enableRosetta = true;
+              enableRosetta = lib.mkDefault true;
               user = username;
               # Existing installations require a deliberate, separately reviewed migration.
               autoMigrate = false;

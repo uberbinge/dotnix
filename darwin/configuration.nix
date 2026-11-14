@@ -1,4 +1,4 @@
-{ pkgs, lib, username, system, self, ... }:
+{ config, pkgs, lib, username, system, self, ... }:
 {
   # Set the primary user for user-specific settings (Homebrew, launchd, etc.)
   # This is the main fix for the nix-darwin error.
@@ -47,7 +47,7 @@
   # Checks run before activation, including direct darwin-rebuild invocations.
   # Never migrate/chown an existing unknown or other-owned Homebrew install.
   system.checks.text = lib.mkBefore ''
-    ${pkgs.bash}/bin/bash ${../scripts/check-homebrew.sh} ${lib.escapeShellArg username}
+    ${pkgs.bash}/bin/bash ${../scripts/check-homebrew.sh} ${lib.escapeShellArg username} ${if config.nix-homebrew.enableRosetta then "rosetta" else "no-rosetta"}
   '';
 
   programs.zsh.enable = true;
